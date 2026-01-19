@@ -69,13 +69,82 @@ NAMESPACES = {
 
 
 def load_initial_trains():
-    """Skip S3 loading - use Darwin real-time only (saves memory)"""
+    """Load initial trains using S3 bootstrap module"""
     global last_snapshot_load
     
-    print('📥 Skipping S3 bootstrap (memory optimization)')
-    print('   Will rely on Darwin Push Port for train data')
-    last_snapshot_load = datetime.now()
-    return True
+    print('📥 Loading initial train data from S3...')
+    
+    if not S3_BOOTSTRAP_AVAILABLE:
+        print('❌ S3 Bootstrap module not available')
+        return False
+    
+    if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+        print('⚠️  AWS credentials not configured, skipping S3 bootstrap')
+        return False
+    
+    try:
+        # Use S3 bootstrap to load timetable
+        loader = S3TimetableBootstrap(
+            tiploc=ROYDON_TIPLOC,
+            hours_ahead=2
+        )
+        
+        trains = loader.load()
+        
+        if not trains:
+            print('⚠️  No trains loaded from S3 bootstrap')
+            return False
+        
+        # Add trains to cache
+        now = datetime.now()
+        trains_added = 0
+        stopping_count = 0
+        passing_count = 0
+        
+        with cache_lock:
+            for train in trains:
+                rid = train.get('rid', f"s3_{trains_added}")
+                
+                # Parse time if it's a string
+                parsed_time = train.get('parsed_time')
+                if isinstance(parsed_time, str):
+                    parsed_time = datetime.fromisoformat(parsed_time)
+                
+                # Only add future trains
+                if parsed_time and parsed_time > now:
+                    trains_cache[rid] = {
+                        'rid': rid,
+                        'uid': train.get('uid', 'unknown'),
+                        'ssd': train.get('ssd', now.strftime('%Y-%m-%d')),
+                        'type': train.get('type', 'stopping'),
+                        'time': train.get('time'),
+                        'parsed_time': parsed_time.isoformat() if parsed_time else None,
+                        'destination': train.get('destination', 'Unknown'),
+                        'origin': train.get('origin', 'Unknown'),
+                        'toc': train.get('toc'),
+                        'platform': train.get('platform'),
+                        'eta': train.get('eta'),
+                        'delayed': train.get('delayed', False)
+                    }
+                    trains_added += 1
+                    if train.get('type') == 'stopping':
+                        stopping_count += 1
+                    else:
+                        passing_count += 1
+        
+        print(f'✅ Loaded {trains_added} trains from S3')
+        print(f'   Stopping: {stopping_count}')
+        print(f'   Passing: {passing_count}')
+        
+        last_snapshot_load = datetime.now()
+        return True
+        
+    except Exception as e:
+        print(f'❌ Error loading S3 bootstrap: {e}')
+        import traceback
+        traceback.print_exc()
+        return False
+
 
 def parse_time(time_str):
     """Parse time string (HH:MM or HH:MM:SS) to datetime today"""
