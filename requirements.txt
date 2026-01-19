@@ -1,0 +1,17 @@
+# Darwin Push Port and S3 Bootstrap Requirements
+
+# AWS S3 access
+boto3>=1.26.0
+
+# STOMP protocol for Darwin Push Port
+stomp.py>=8.1.0
+
+# Flask web framework
+Flask>=2.3.0
+flask-cors>=4.0.0
+
+# Production WSGI server
+gunicorn>=21.0.0
+
+# XML parsing (for Darwin messages)
+lxml>=4.9.0
