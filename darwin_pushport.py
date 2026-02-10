@@ -297,20 +297,48 @@ class DarwinMessageListener(stomp.ConnectionListener):
                             tpl = loc.get('tpl', '')
                             
                             if tpl == ROYDON_TIPLOC:
+                                # Look for timing in child elements (arr, dep, pass)
+                                et = None  # estimated time
+                                at = None  # actual time
+                                
+                                for child in loc:
+                                    tag_lower = child.tag.lower()
+                                    # Check for arr (arrival), dep (departure), pass (passing)
+                                    if 'arr' in tag_lower or 'dep' in tag_lower or 'pass' in tag_lower:
+                                        # Get estimated or actual time from child element
+                                        child_et = child.get('et')
+                                        child_at = child.get('at')
+                                        if child_at:
+                                            at = child_at
+                                        if child_et:
+                                            et = child_et
+                                
+                                # Also check attributes on Location itself (some message formats)
+                                if not et:
+                                    et = loc.get('et')
+                                if not at:
+                                    at = loc.get('at')
+                                
                                 with cache_lock:
                                     if rid in trains_cache:
-                                        et = loc.get('et')
-                                        at = loc.get('at')
+                                        scheduled = trains_cache[rid].get('time', '')[:5] if trains_cache[rid].get('time') else ''
                                         
                                         if at:
-                                            trains_cache[rid]['eta'] = at
+                                            trains_cache[rid]['eta'] = at[:5] if len(at) >= 5 else at
                                             trains_cache[rid]['actual'] = True
+                                            print(f'🕐 Train {rid} ACTUAL at Roydon: {at}')
                                         elif et:
-                                            trains_cache[rid]['eta'] = et
-                                            trains_cache[rid]['delayed'] = et != trains_cache[rid]['time']
+                                            et_clean = et[:5] if len(et) >= 5 else et
+                                            trains_cache[rid]['eta'] = et_clean
+                                            # Check if delayed (estimated != scheduled)
+                                            if et_clean != scheduled:
+                                                trains_cache[rid]['delayed'] = True
+                                                print(f'⚠️ Train {rid} DELAYED at Roydon: {scheduled} → {et_clean}')
+                                            else:
+                                                trains_cache[rid]['delayed'] = False
                                 
                 except Exception as e:
-                    pass
+                    print(f'❌ Error processing train status: {e}')
     
     def on_connected(self, frame):
         global darwin_connected
@@ -444,13 +472,15 @@ def status():
     with cache_lock:
         stopping = len([t for t in trains_cache.values() if t.get('type') == 'stopping'])
         passing = len([t for t in trains_cache.values() if t.get('type') == 'passing'])
+        delayed = len([t for t in trains_cache.values() if t.get('delayed')])
     
     return jsonify({
         'status': 'running',
         'trains': {
             'total': len(trains_cache),
             'stopping': stopping,
-            'passing': passing
+            'passing': passing,
+            'delayed': delayed
         },
         'darwin': {
             'connected': darwin_connected,
@@ -462,6 +492,45 @@ def status():
             'last_load': last_snapshot_load.isoformat() if last_snapshot_load else None
         },
         'timestamp': datetime.now().isoformat()
+    })
+
+
+@app.route('/api/debug', methods=['GET'])
+def debug():
+    """Debug endpoint - shows all cached trains with full details"""
+    now = datetime.now()
+    
+    with cache_lock:
+        all_trains = []
+        for rid, train in trains_cache.items():
+            all_trains.append({
+                'rid': rid,
+                'uid': train.get('uid'),
+                'type': train.get('type'),
+                'scheduled': train.get('time'),
+                'eta': train.get('eta'),
+                'delayed': train.get('delayed'),
+                'origin': train.get('origin'),
+                'destination': train.get('destination'),
+                'parsed_time': train.get('parsed_time')
+            })
+        
+        all_trains.sort(key=lambda t: t.get('parsed_time') or '')
+        
+        stopping = [t for t in all_trains if t.get('type') == 'stopping']
+        passing = [t for t in all_trains if t.get('type') == 'passing']
+        delayed = [t for t in all_trains if t.get('delayed')]
+    
+    return jsonify({
+        'summary': {
+            'total': len(all_trains),
+            'stopping': len(stopping),
+            'passing': len(passing),
+            'delayed': len(delayed)
+        },
+        'delayed_trains': delayed,
+        'all_trains': all_trains,
+        'timestamp': now.isoformat()
     })
 
 
