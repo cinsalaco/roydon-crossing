@@ -370,7 +370,7 @@ class S3TimetableLoader:
             time_str = pass_time.strftime('%H:%M')
             
             passing.append({
-                'rid': f"P{j['rid']}",
+                'rid': j['rid'],  # Use original RID so real-time updates match!
                 'uid': j['uid'],
                 'ssd': j['ssd'],
                 'toc': j['toc'],
@@ -379,6 +379,8 @@ class S3TimetableLoader:
                 'parsed_time': pass_time,
                 'origin': origin,
                 'destination': destination,
+                'route_type': route_type,  # For debugging calibration
+                'direction': 'inbound' if is_inbound else 'outbound',
             })
         
         return passing

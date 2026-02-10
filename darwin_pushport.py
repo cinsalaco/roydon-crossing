@@ -503,7 +503,7 @@ def debug():
     with cache_lock:
         all_trains = []
         for rid, train in trains_cache.items():
-            all_trains.append({
+            train_info = {
                 'rid': rid,
                 'uid': train.get('uid'),
                 'type': train.get('type'),
@@ -513,7 +513,12 @@ def debug():
                 'origin': train.get('origin'),
                 'destination': train.get('destination'),
                 'parsed_time': train.get('parsed_time')
-            })
+            }
+            # Add route info for passing trains (for calibration debugging)
+            if train.get('type') == 'passing':
+                train_info['route_type'] = train.get('route_type')
+                train_info['direction'] = train.get('direction')
+            all_trains.append(train_info)
         
         all_trains.sort(key=lambda t: t.get('parsed_time') or '')
         
