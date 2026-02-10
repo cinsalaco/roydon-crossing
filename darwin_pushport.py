@@ -170,12 +170,21 @@ def parse_time(time_str):
 class DarwinMessageListener(stomp.ConnectionListener):
     """Listener for Darwin Push Port messages"""
     
+    def __init__(self, conn):
+        self.conn = conn
+    
     def on_error(self, frame):
         print(f'❌ Darwin Error: {frame.body}')
     
     def on_message(self, frame):
         """Handle incoming Darwin message"""
         try:
+            # ACK the message first to prevent queue buildup
+            message_id = frame.headers.get('message-id')
+            subscription = frame.headers.get('subscription')
+            if message_id and subscription:
+                self.conn.ack(message_id, subscription)
+            
             body = None
             
             if hasattr(frame, 'binary_body'):
@@ -331,7 +340,8 @@ def connect_to_darwin():
         auto_decode=False
     )
     
-    conn.set_listener('darwin-listener', DarwinMessageListener())
+    # Pass connection to listener so it can ACK messages
+    conn.set_listener('darwin-listener', DarwinMessageListener(conn))
     
     while True:
         try:
