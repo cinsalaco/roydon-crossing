@@ -44,7 +44,7 @@
 </main>
 <script>
 (function () {
-  const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up' };
+  const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up', open: 'Barrier is up (spot check)' };
   const fmt = iso => iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
   const day = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
@@ -75,7 +75,12 @@
     const lightsPass = obs.filter(o => o.event === 'lights' && /passes/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
     const lightsTo = obs.filter(o => o.event === 'lights' && /toLondon/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
     const lightsFrom = obs.filter(o => o.event === 'lights' && /fromLondon/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
-    document.getElementById('cards').innerHTML =
+    const spots = obs.filter(o => o.event === 'open');
+    const wrongOpen = spots.filter(o => (o.snapshot || {}).state === 'closed').length;
+    const downs = obs.filter(o => o.event === 'down' || o.event === 'lights');
+    const wrongClosed = downs.filter(o => (o.snapshot || {}).state === 'open' && o.event === 'down').length;
+    const spotCard = `<div class="card"><div class="k">State checks</div><div class="v">${spots.length + downs.length ? Math.round(100 * (1 - (wrongOpen + wrongClosed) / (spots.length + downs.length))) + '%' : '–'}</div><div class="s">app agreed · ${wrongOpen} said closed when open · ${wrongClosed} said open when closed</div></div>`;
+    document.getElementById('cards').innerHTML = spotCard +
       card('Lights vs predicted down', stats(by('lights')), 'all trains') +
       card('Barrier up vs predicted up', stats(by('up'))) +
       card('Train passed vs forecast', stats(by('train'))) +
@@ -88,7 +93,7 @@
     tb.innerHTML = obs.map(o => {
       const s = o.snapshot || {};
       const d = delta(o);
-      const pred = o.event === 'up' ? `up ${fmt(s.predicted_open)}` : o.event === 'train' ? `train ${fmt(s.nearest_train_at)}` : `down ${fmt(s.predicted_close)}`;
+      const pred = o.event === 'open' ? (s.state === 'closed' ? 'CLOSED – wrong' : s.state || '') : o.event === 'up' ? `up ${fmt(s.predicted_open)}` : o.event === 'train' ? `train ${fmt(s.nearest_train_at)}` : `down ${fmt(s.predicted_close)}`;
       const cls = d == null ? '' : d > 0 ? 'late' : d < 0 ? 'early' : '';
       return `<tr><td>${day(o.at)}<br>${fmt(o.at)}</td><td>${NAMES[o.event] || o.event}<br><small>app: ${s.state || ''}</small></td><td>${pred}</td><td>${s.nearest_train || ''}</td><td>${o.note || ''}</td><td class="num ${cls}">${d == null ? '' : (d > 0 ? '+' : '') + d + 's'}</td></tr>`;
     }).join('') || '<tr><td colspan="6">No observations yet.</td></tr>';

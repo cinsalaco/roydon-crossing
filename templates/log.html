@@ -38,6 +38,8 @@
   .ev.down { background: var(--red); }
   .ev.train { background: #3a3f47; }
   .ev.up { background: var(--green); }
+  .ev.openck { background: #fff; color: var(--ink); border: 2px solid var(--ink); min-height: 64px; }
+  .spot { margin-top: 18px; }
   button.ev:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
   .note { margin-top: 12px; display: flex; gap: 8px; }
@@ -87,6 +89,11 @@
     </div>
   </div>
   <div class="session" id="session"></div>
+
+  <div class="spot">
+    <div class="step-head"><span class="num">✓</span>Spot check <small>Any time, no closure needed</small></div>
+    <button class="ev openck" data-ev="open">Barrier is up<small>I can see the crossing is open right now</small></button>
+  </div>
   <div class="note"><input id="note" placeholder="Optional note, e.g. barrier stayed down, no train" aria-label="Note"></div>
   <div class="toast" id="toast"></div>
 
@@ -97,7 +104,7 @@
     <a href="/log/review">Review against predictions</a>
     <a href="/api/observations.csv">Download CSV</a>
   </div>
-  <p class="help">Each closure is three presses: step 1 (one of the two), step 2 once per train, step 3 once. Every press records the exact second and what the app was predicting at that moment. If you have to leave before the barrier goes up, just skip step 3.</p>
+  <p class="help">Each closure is three presses: step 1 (one of the two), step 2 once per train, step 3 once. If you have to leave before the barrier goes up, just skip step 3. The spot check is separate: press it whenever you can see the crossing is open, especially if the app says it should be closed – that's the mistake we most need to catch.</p>
 </main>
 
 <script src="/static/crossing.js"></script>
@@ -105,7 +112,7 @@
 (function () {
   const C = window.Crossing;
   const $ = id => document.getElementById(id);
-  const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up' };
+  const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up', open: 'Barrier is up (spot check)' };
   let observations = [];
   let session = JSON.parse(localStorage.getItem('logSession') || 'null') || { started: null, trains: 0, startedAt: null };
 
@@ -163,6 +170,7 @@
     if (o.event === 'lights' || o.event === 'down') ref = s.predicted_close;
     if (o.event === 'up') ref = s.predicted_open;
     if (o.event === 'train') ref = s.nearest_train_at;
+    if (o.event === 'open') return (s.state === 'closed') ? 'app said CLOSED' : 'app agreed';
     if (!ref) return '';
     const d = Math.round((new Date(o.at) - new Date(ref)) / 1000);
     if (o.event === 'down') return d >= 0 ? 'consistent' : `${-d}s before predicted`;
@@ -176,7 +184,8 @@
     $('list').innerHTML = rows.map(o => {
       const dt = deltaText(o);
       const d = Math.abs(parseInt(dt) || 0);
-      return `<div class="row"><span class="t">${C.hhmmss(new Date(o.at))}</span><span class="ev">${NAMES[o.event] || o.event}${o.note ? ' – ' + o.note : ''}<br><small style="opacity:.7">${(o.snapshot || {}).nearest_train || ''}</small></span><span class="delta ${dt.includes('consistent') || d <= 30 ? 'good' : 'bad'}">${dt}</span><button data-id="${o.id}" aria-label="Delete">✕</button></div>`;
+      const good = dt.includes('consistent') || dt.includes('agreed') || (!dt.includes('CLOSED') && d <= 30);
+      return `<div class="row"><span class="t">${C.hhmmss(new Date(o.at))}</span><span class="ev">${NAMES[o.event] || o.event}${o.note ? ' – ' + o.note : ''}<br><small style="opacity:.7">${(o.snapshot || {}).nearest_train || ''}</small></span><span class="delta ${good ? 'good' : 'bad'}">${dt}</span><button data-id="${o.id}" aria-label="Delete">✕</button></div>`;
     }).join('') || '<div class="row" style="opacity:.6">Nothing logged yet today.</div>';
     $('list').querySelectorAll('button').forEach(b => b.addEventListener('click', () => remove(b.dataset.id)));
   }
@@ -200,7 +209,7 @@
       if (navigator.vibrate) navigator.vibrate(30);
       if (ev === 'lights' || ev === 'down') { session = { started: ev, trains: 0, startedAt: now.toISOString() }; }
       else if (ev === 'train') { session.trains += 1; if (!session.started) { session.started = 'down'; session.startedAt = now.toISOString(); } }
-      else if (ev === 'up') { session = { started: null, trains: 0, startedAt: null }; }
+      else if (ev === 'up' || ev === 'open') { session = { started: null, trains: 0, startedAt: null }; }
       saveSession(); renderSession();
       await load();
     } catch (e) {

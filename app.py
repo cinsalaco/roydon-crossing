@@ -463,8 +463,8 @@ def list_observations():
 @app.route('/api/observations', methods=['POST'])
 def add_observation():
     body = request.get_json(silent=True) or {}
-    if body.get('event') not in ('lights', 'down', 'train', 'up'):
-        return jsonify({'error': 'event must be one of lights, down, train, up'}), 400
+    if body.get('event') not in ('lights', 'down', 'train', 'up', 'open'):
+        return jsonify({'error': 'event must be one of lights, down, train, up, open'}), 400
     obs = {
         'id': uuid.uuid4().hex[:12],
         'event': body['event'],
