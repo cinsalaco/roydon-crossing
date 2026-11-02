@@ -56,9 +56,9 @@
   }
   @media (max-width: 360px) { .page { padding-left: 18px; padding-right: 18px; } }
 
-  .header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; font-weight: 500; opacity: 0.85; }
+  .header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; font-weight: 500; }
   .header .updated { white-space: nowrap; }
-  .header .updated.warn { opacity: 1; font-weight: 600; }
+  .header .updated.warn { font-weight: 600; }
 
   .state { margin-top: clamp(24px, 5vh, 44px); }
   .state-word { font-size: clamp(52px, 19vw, 76px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
@@ -87,15 +87,18 @@
   .train:last-child { border-bottom: 1px solid var(--rule); }
   .train.gone { opacity: 0.6; }
   .train .t { font-weight: 700; min-width: 46px; }
-  .train .t s { font-weight: 400; opacity: 0.6; font-size: 12px; margin-left: 4px; }
+  .train .t s { font-weight: 600; font-size: 12px; margin-left: 6px; padding: 1px 6px; border-radius: 4px; color: #fff; background: var(--red); box-shadow: 0 0 0 1px rgba(255,255,255,0.45); }
+  .train .t s.early { background: var(--blue, #1565c0); }
+  .train .tag.late { font-weight: 700; }
   .train .route { flex: 1; }
   .train .tag { font-size: 13px; opacity: 0.85; white-space: nowrap; }
   .lift-note { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin: 4px 0; border-radius: 6px; background: rgba(255,255,255,0.18); font-size: 13px; font-weight: 600; }
   body.state-closing .lift-note { background: rgba(0,0,0,0.12); }
 
   .spacer { flex: 1; min-height: 20px; }
+  :root { --blue: #1565c0; }
   .footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
-  .footer .note { font-size: 12px; line-height: 1.4; opacity: 0.8; max-width: 240px; }
+  .footer .logbtn { padding: 0 16px; border: 2px solid currentColor; border-radius: 10px; min-height: 44px; }
   .footer a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 15px; font-weight: 600; text-decoration: none; color: inherit; white-space: nowrap; }
   .footer a:focus-visible, .retry:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; border-radius: 4px; }
 
@@ -142,7 +145,7 @@
   <div class="spacer"></div>
 
   <div class="footer">
-    <div class="note">Estimated from live train data. Always follow the lights and barrier at the crossing.</div>
+    <a href="/log" class="logbtn">Log what I see</a>
     <a href="/timeline">Timeline <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
   </div>
   <div class="sr-only" aria-live="polite" id="live"></div>
@@ -160,10 +163,11 @@
   function trainRow(tr, now) {
     const gone = tr.openAt <= now;
     let time = C.hhmm(tr.at);
-    if (tr.late || tr.early) time += `<s>${C.hhmm(tr.schedAt)}</s>`;
+    if (tr.late) time += `<s>${C.hhmm(tr.schedAt)}</s>`;
+    else if (tr.early) time += `<s class="early">${C.hhmm(tr.schedAt)}</s>`;
     let tag = tr.stops ? 'stops here' : 'passes through';
     if (gone) tag = 'gone';
-    else if (tr.late) tag = `${tr.late} min late`;
+    else if (tr.late) tag = `<span class="late">${tr.late} min late</span>`;
     else if (tr.early) tag = `${tr.early} min early`;
     return `<div class="train${gone ? ' gone' : ''}"><span class="t">${time}</span><span class="route">${tr.origin} to ${tr.destination}${tr.freight ? ' (freight)' : ''}</span><span class="tag">${tag}</span></div>`;
   }
