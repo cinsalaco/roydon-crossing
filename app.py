@@ -84,6 +84,8 @@ rate_limit = {}              # last seen X-RateLimit-* headers
 _access_token = None
 _access_token_expires = None
 _token_lock = threading.Lock()
+_token_mode = RTT_TOKEN_TYPE          # 'access' or 'refresh'; may flip to 'refresh' on a 401
+_token_last_error = None
 
 
 def _base_headers(token):
@@ -93,28 +95,57 @@ def _base_headers(token):
     return headers
 
 
+def _exchange_refresh_token():
+    """Call /api/get_access_token with RTT_TOKEN as the bearer. Returns (token, expires)."""
+    now = datetime.now(timezone.utc)
+    resp = requests.get(f'{RTT_BASE_URL}/api/get_access_token',
+                        headers=_base_headers(RTT_TOKEN), timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+    expires = parse_iso(data.get('validUntil')) or (now + timedelta(hours=1))
+    log.info('Access token obtained, valid until %s; entitlements: %s',
+             expires.isoformat(), data.get('entitlements'))
+    return data['token'], expires
+
+
 def get_access_token():
     """Return a usable access token, exchanging a refresh token if needed."""
     global _access_token, _access_token_expires
 
-    if RTT_TOKEN_TYPE != 'refresh':
+    if _token_mode != 'refresh':
         return RTT_TOKEN
 
     with _token_lock:
         now = datetime.now(timezone.utc)
         if _access_token and _access_token_expires and now < _access_token_expires - timedelta(minutes=5):
             return _access_token
-
         log.info('Exchanging refresh token for an access token')
-        resp = requests.get(f'{RTT_BASE_URL}/api/get_access_token',
-                            headers=_base_headers(RTT_TOKEN), timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-        _access_token = data['token']
-        _access_token_expires = parse_iso(data.get('validUntil')) or (now + timedelta(hours=1))
-        log.info('Access token valid until %s; entitlements: %s',
-                 _access_token_expires.isoformat(), data.get('entitlements'))
+        _access_token, _access_token_expires = _exchange_refresh_token()
         return _access_token
+
+
+def handle_unauthorized():
+    """
+    Called after a 401. If we were treating RTT_TOKEN as an access token, try it
+    as a refresh token instead (the portal issues either kind). Returns True if
+    the mode changed and the caller should retry.
+    """
+    global _token_mode, _access_token, _access_token_expires, _token_last_error
+    if _token_mode == 'refresh':
+        _token_last_error = 'RTT returned 401 even after the refresh-token exchange'
+        return False
+    try:
+        with _token_lock:
+            _access_token, _access_token_expires = _exchange_refresh_token()
+            _token_mode = 'refresh'
+        log.warning('RTT_TOKEN was rejected as an access token but works as a refresh token; '
+                    'switched to refresh mode (set RTT_TOKEN_TYPE=refresh to skip this check)')
+        _token_last_error = None
+        return True
+    except Exception as exc:
+        _token_last_error = f'RTT rejected the token as an access token (401) and as a refresh token ({exc})'
+        log.error(_token_last_error)
+        return False
 
 
 # --------------------------------------------------------------------------
@@ -283,6 +314,8 @@ def fetch_api_info():
     global api_info
     try:
         resp = requests.get(f'{RTT_BASE_URL}/api/info', headers=_base_headers(get_access_token()), timeout=20)
+        if resp.status_code == 401 and handle_unauthorized():
+            resp = requests.get(f'{RTT_BASE_URL}/api/info', headers=_base_headers(get_access_token()), timeout=20)
         resp.raise_for_status()
         api_info = resp.json()
         creds = api_info.get('credentials') or {}
@@ -307,6 +340,12 @@ def poll_once():
     resp = requests.get(f'{RTT_BASE_URL}/gb-nr/location',
                         headers=_base_headers(get_access_token()),
                         params=params, timeout=30)
+    if resp.status_code == 401 and handle_unauthorized():
+        resp = requests.get(f'{RTT_BASE_URL}/gb-nr/location',
+                            headers=_base_headers(get_access_token()),
+                            params=params, timeout=30)
+    if resp.status_code == 401:
+        raise RuntimeError(_token_last_error or 'RTT returned 401 Unauthorized - check RTT_TOKEN')
 
     rate_limit = {k: v for k, v in resp.headers.items() if k.lower().startswith('x-ratelimit')}
 
@@ -430,6 +469,8 @@ def status():
             'api_version': (api_info or {}).get('api_version'),
             'entitlements': creds.get('entitlements'),
             'detailed_access': 'allowDetailed' in (creds.get('entitlements') or []),
+            'token_mode': _token_mode,
+            'token_error': _token_last_error,
             'rate_limit': rate_limit,
         },
         'timestamp': datetime.now(LONDON).isoformat(),
