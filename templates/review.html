@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roydon crossing – observations vs predictions</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+  :root { --green: #0E6B3A; --red: #B81F1E; --ink: #15171a; --bg: #F2F3F5; --rule: rgba(21,23,26,0.14); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Archivo', system-ui, sans-serif; font-variant-numeric: tabular-nums; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  .page { max-width: 760px; margin: 0 auto; padding: 12px 20px 40px; }
+  .header { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .back { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; color: inherit; text-decoration: none; }
+  h1 { font-size: 20px; font-weight: 700; flex: 1; }
+  h2 { font-size: 15px; font-weight: 600; margin-top: 24px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .card { background: #fff; border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; }
+  .card .k { font-size: 12px; opacity: 0.7; }
+  .card .v { font-size: 22px; font-weight: 800; margin-top: 2px; }
+  .card .s { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; background: #fff; border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; font-size: 12px; opacity: 0.7; border-top: 0; }
+  td.num { text-align: right; white-space: nowrap; font-weight: 600; }
+  td.num.early { color: var(--green); } td.num.late { color: var(--red); }
+  .wrap { overflow-x: auto; }
+  .hint { font-size: 13px; opacity: 0.75; line-height: 1.45; margin-top: 14px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="header">
+    <a class="back" href="/log" aria-label="Back to log"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+    <h1>Observations vs predictions</h1>
+  </div>
+
+  <h2>How far out is the model?</h2>
+  <div class="cards" id="cards"></div>
+  <p class="hint">Positive means the real event happened <b>later</b> than the app predicted; negative means earlier. "Lights started" and "Barrier up" are the two that calibrate the lead and trail times. Split by direction and stop/pass to see whether one number fits all trains.</p>
+
+  <h2>Every observation</h2>
+  <div class="wrap"><table id="table"><thead><tr><th>When</th><th>Event</th><th>App predicted</th><th>Train it matched</th><th>Note</th><th>Δ</th></tr></thead><tbody></tbody></table></div>
+</main>
+<script>
+(function () {
+  const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up' };
+  const fmt = iso => iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+  const day = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  function delta(o) {
+    const s = o.snapshot || {};
+    const ref = o.event === 'up' ? s.predicted_open : o.event === 'train' ? s.nearest_train_at : (o.event === 'lights' || o.event === 'down') ? s.predicted_close : null;
+    if (!ref) return null;
+    return Math.round((new Date(o.at) - new Date(ref)) / 1000);
+  }
+  function stats(vals) {
+    if (!vals.length) return null;
+    const sorted = vals.slice().sort((a, b) => a - b);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const median = sorted[Math.floor(sorted.length / 2)];
+    return { n: vals.length, mean: Math.round(mean), median, min: sorted[0], max: sorted[sorted.length - 1] };
+  }
+  function card(title, st, sub) {
+    if (!st) return `<div class="card"><div class="k">${title}</div><div class="v">–</div><div class="s">no data yet</div></div>`;
+    const sign = st.median > 0 ? '+' : '';
+    return `<div class="card"><div class="k">${title}</div><div class="v">${sign}${st.median}s</div><div class="s">median of ${st.n}, mean ${st.mean}s, range ${st.min} to ${st.max}${sub ? '<br>' + sub : ''}</div></div>`;
+  }
+
+  async function load() {
+    const r = await fetch('/api/observations', { cache: 'no-store' });
+    const obs = (await r.json()).sort((a, b) => new Date(b.at) - new Date(a.at));
+    const by = ev => obs.filter(o => o.event === ev).map(delta).filter(d => d != null);
+    const lightsStop = obs.filter(o => o.event === 'lights' && /stops/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
+    const lightsPass = obs.filter(o => o.event === 'lights' && /passes/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
+    const lightsTo = obs.filter(o => o.event === 'lights' && /toLondon/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
+    const lightsFrom = obs.filter(o => o.event === 'lights' && /fromLondon/.test((o.snapshot || {}).nearest_train || '')).map(delta).filter(d => d != null);
+    document.getElementById('cards').innerHTML =
+      card('Lights vs predicted down', stats(by('lights')), 'all trains') +
+      card('Barrier up vs predicted up', stats(by('up'))) +
+      card('Train passed vs forecast', stats(by('train'))) +
+      card('Lights – stopping trains', stats(lightsStop)) +
+      card('Lights – passing trains', stats(lightsPass)) +
+      card('Lights – towards London', stats(lightsTo)) +
+      card('Lights – from London', stats(lightsFrom));
+
+    const tb = document.querySelector('#table tbody');
+    tb.innerHTML = obs.map(o => {
+      const s = o.snapshot || {};
+      const d = delta(o);
+      const pred = o.event === 'up' ? `up ${fmt(s.predicted_open)}` : o.event === 'train' ? `train ${fmt(s.nearest_train_at)}` : `down ${fmt(s.predicted_close)}`;
+      const cls = d == null ? '' : d > 0 ? 'late' : d < 0 ? 'early' : '';
+      return `<tr><td>${day(o.at)}<br>${fmt(o.at)}</td><td>${NAMES[o.event] || o.event}<br><small>app: ${s.state || ''}</small></td><td>${pred}</td><td>${s.nearest_train || ''}</td><td>${o.note || ''}</td><td class="num ${cls}">${d == null ? '' : (d > 0 ? '+' : '') + d + 's'}</td></tr>`;
+    }).join('') || '<tr><td colspan="6">No observations yet.</td></tr>';
+  }
+  load();
+})();
+</script>
+</body>
+</html>

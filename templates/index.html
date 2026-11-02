@@ -1,760 +1,305 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Roydon Level Crossing</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Roydon crossing">
+<meta name="theme-color" id="themeColor" content="#0E6B3A">
+<title>Roydon level crossing</title>
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+<link rel="icon" href="/static/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #0E6B3A;
+    --amber: #F0A202;
+    --red: #B81F1E;
+    --grey: #4A4F57;
+    --ink: #15171a;
+    --panel: #F2F3F5;
+    --fg: #ffffff;
+    --rule: rgba(255,255,255,0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+    font-variant-numeric: tabular-nums;
+    background: var(--green);
+    color: var(--fg);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.4s ease;
+  }
+  body.state-open   { background: var(--green); --fg: #ffffff; --rule: rgba(255,255,255,0.3); }
+  body.state-closing{ background: var(--amber); --fg: #1a1200; --rule: rgba(0,0,0,0.22); }
+  body.state-closed { background: var(--red);   --fg: #ffffff; --rule: rgba(255,255,255,0.3); }
+  body.state-unavailable { background: var(--grey); --fg: #ffffff; --rule: rgba(255,255,255,0.25); }
+  @media (prefers-reduced-motion: reduce) { body { transition: none; } }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #4CAF50;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            color: white;
-        }
+  .page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: calc(16px + env(safe-area-inset-top)) 24px calc(16px + env(safe-area-inset-bottom));
+  }
+  @media (max-width: 360px) { .page { padding-left: 18px; padding-right: 18px; } }
 
-        body.closing {
-            background: #ff9800;
-        }
+  .header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; font-weight: 500; opacity: 0.85; }
+  .header .updated { white-space: nowrap; }
+  .header .updated.warn { opacity: 1; font-weight: 600; }
 
-        body.closed {
-            background: #f44336;
-        }
+  .state { margin-top: clamp(24px, 5vh, 44px); }
+  .state-word { font-size: clamp(52px, 19vw, 76px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .state-line { font-size: clamp(18px, 5.6vw, 22px); font-weight: 500; line-height: 1.3; margin-top: 10px; }
 
-        .header {
-            background: rgba(0,0,0,0.1);
-            padding: 20px;
-            text-align: center;
-        }
+  .count { margin-top: clamp(20px, 4vh, 32px); }
+  .count-label { font-size: 18px; font-weight: 500; opacity: 0.85; }
+  .count-value { font-size: clamp(76px, 29vw, 116px); font-weight: 700; font-stretch: 75%; line-height: 0.92; letter-spacing: -0.03em; margin-top: 4px; }
+  .count-detail { font-size: 18px; font-weight: 500; opacity: 0.85; margin-top: 10px; line-height: 1.35; }
 
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-            color: white;
-        }
+  .strip-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 28px; padding: 14px 16px 12px; border-radius: 12px; background: var(--panel); color: var(--ink); }
+  .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; }
+  .legend { display: inline-flex; align-items: center; gap: 12px; font-weight: 500; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .strip { display: flex; height: 14px; border-radius: 3px; overflow: hidden; gap: 2px; }
+  .strip div { min-width: 2px; }
+  .strip .open { background: var(--green); }
+  .strip .closed { background: var(--red); }
+  .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.65; }
+  .strip-next { font-size: 14px; font-weight: 500; margin-top: 2px; }
 
-        .main-display {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 30px 20px;
-        }
+  .trains { margin-top: 22px; }
+  .trains h2 { font-size: 13px; font-weight: 500; opacity: 0.8; padding-bottom: 4px; }
+  .train { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 15px; }
+  .train:last-child { border-bottom: 1px solid var(--rule); }
+  .train.gone { opacity: 0.6; }
+  .train .t { font-weight: 700; min-width: 46px; }
+  .train .t s { font-weight: 400; opacity: 0.6; font-size: 12px; margin-left: 4px; }
+  .train .route { flex: 1; }
+  .train .tag { font-size: 13px; opacity: 0.85; white-space: nowrap; }
+  .lift-note { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin: 4px 0; border-radius: 6px; background: rgba(255,255,255,0.18); font-size: 13px; font-weight: 600; }
+  body.state-closing .lift-note { background: rgba(0,0,0,0.12); }
 
-        .crossing-status {
-            text-align: center;
-            max-width: 700px;
-            width: 100%;
-        }
+  .spacer { flex: 1; min-height: 20px; }
+  .footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  .footer .note { font-size: 12px; line-height: 1.4; opacity: 0.8; max-width: 240px; }
+  .footer a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 15px; font-weight: 600; text-decoration: none; color: inherit; white-space: nowrap; }
+  .footer a:focus-visible, .retry:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; border-radius: 4px; }
 
-        .main-message {
-            font-size: 32px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            line-height: 1.3;
-        }
-
-        .time-info {
-            font-size: 48px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-
-        .train-details {
-            font-size: 24px;
-            margin-bottom: 25px;
-            opacity: 0.95;
-        }
-
-        .train-breakdown {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-
-        .breakdown-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 18px;
-            opacity: 0.9;
-        }
-
-        .breakdown-item .material-icons {
-            font-size: 20px;
-        }
-
-        .direction-breakdown {
-            display: flex;
-            justify-content: center;
-            gap: 25px;
-            margin-top: 12px;
-            font-size: 16px;
-            opacity: 0.8;
-        }
-
-        .direction-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .short-opening {
-            font-size: 20px;
-            margin-top: 25px;
-            padding: 15px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 8px;
-        }
-
-        .footer {
-            background: rgba(0,0,0,0.1);
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .timeline-link {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: white;
-            text-decoration: none;
-            font-size: 16px;
-            font-weight: 500;
-            background: rgba(0,0,0,0.2);
-            padding: 12px 20px;
-            border-radius: 8px;
-            transition: background 0.3s;
-        }
-
-        .timeline-link:hover {
-            background: rgba(0,0,0,0.3);
-        }
-
-        .app-info {
-            font-size: 12px;
-            color: rgba(255,255,255,0.8);
-        }
-
-        .app-info a {
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: white;
-        }
-
-        .error {
-            color: #ffeb3b;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-
-        @media (max-width: 600px) {
-            .main-message {
-                font-size: 24px;
-            }
-
-            .time-info {
-                font-size: 36px;
-            }
-
-            .train-details {
-                font-size: 18px;
-            }
-
-            .short-opening {
-                font-size: 16px;
-            }
-
-            .train-breakdown {
-                gap: 20px;
-            }
-
-            .breakdown-item {
-                font-size: 16px;
-            }
-
-            .direction-breakdown {
-                flex-direction: column;
-                gap: 8px;
-                font-size: 14px;
-            }
-
-            .footer {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
-        }
-    </style>
+  .retry { margin-top: 32px; align-self: flex-start; min-height: 48px; padding: 0 22px; border: 2px solid rgba(255,255,255,0.7); border-radius: 10px; background: transparent; color: inherit; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .hidden { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
 </head>
-<body>
-    <div class="header">
-        <h1>Roydon Level Crossing</h1>
+<body class="state-open">
+<main class="page">
+  <div class="header">
+    <span>Roydon level crossing</span>
+    <span class="updated" id="updated">Loading…</span>
+  </div>
+
+  <div class="state">
+    <h1 class="state-word" id="stateWord">Loading</h1>
+    <p class="state-line" id="stateLine">Fetching live train data.</p>
+  </div>
+
+  <div class="count" id="count">
+    <div class="count-label" id="countLabel"></div>
+    <div class="count-value" id="countValue"></div>
+    <div class="count-detail" id="countDetail"></div>
+  </div>
+
+  <button type="button" class="retry hidden" id="retry">Try again now</button>
+
+  <section class="strip-panel" id="stripPanel" aria-label="Next 90 minutes">
+    <div class="strip-head">
+      <span>Next 90 minutes</span>
+      <span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span></span>
     </div>
+    <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+    <div class="strip-axis" id="stripAxis"></div>
+    <div class="strip-next" id="stripNext"></div>
+  </section>
 
-    <div class="main-display" id="mainDisplay">
-        <div class="loading">
-            <p>Loading crossing status...</p>
-        </div>
-    </div>
+  <section class="trains" id="trains">
+    <h2 id="trainsHeading">Trains in the next closure</h2>
+    <div id="trainList"></div>
+  </section>
 
-    <div class="footer">
-        <a href="/timeline" class="timeline-link">
-            <span class="material-icons">access_time</span>
-            <span>Next 90 minutes</span>
-        </a>
-        <div class="app-info">
-            Data provided by <a href="https://www.nationalrail.co.uk/" target="_blank">National Rail</a>
-        </div>
-    </div>
+  <div class="spacer"></div>
 
-    <script>
-        const STATION_CODE = 'RYN';
-        const REFRESH_INTERVAL = 5000; // 5 seconds for real-time updates
-        const CROSSING_WARNING_MINUTES = 3;
-        const CLOSURE_BEFORE_TRAIN_MINUTES = 2;   // barriers go down this long before the train
-        const CLOSURE_BUFFER_SECONDS = 12;        // ...and come up this long after it
-        // If the barriers would be up for less than this between two trains, the
-        // signaller keeps them down and we treat it as one closure with a brief
-        // opening. Anything longer is a real OPEN period.
-        const MERGE_GAP_SECONDS = 90;
-        const CACHE_KEY = 'roydon_train_cache';
-        const CACHE_VERSION = 2; // Increment to clear old cache format
+  <div class="footer">
+    <div class="note">Estimated from live train data. Always follow the lights and barrier at the crossing.</div>
+    <a href="/timeline">Timeline <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+  </div>
+  <div class="sr-only" aria-live="polite" id="live"></div>
+</main>
 
-        let upcomingTrains = [];
-        let countdownInterval = null;
-        let lastKnownState = null; // Track last state to prevent flashing
-        let lastStateTime = null;
+<script src="/static/crossing.js"></script>
+<script>
+(function () {
+  const C = window.Crossing;
+  const $ = id => document.getElementById(id);
+  const THEME = { open: '#0E6B3A', closing: '#F0A202', closed: '#B81F1E', unavailable: '#4A4F57' };
+  let lastAnnounced = '';
+  let fetchFailures = 0;
 
-        // Safe localStorage wrapper
-        const storage = {
-            get(key) {
-                try {
-                    const item = localStorage.getItem(key);
-                    if (!item) return null;
-                    const data = JSON.parse(item);
-                    // Check cache version
-                    if (data.version !== CACHE_VERSION) {
-                        console.log('Cache version mismatch, clearing...');
-                        localStorage.removeItem(key);
-                        return null;
-                    }
-                    return data.cache;
-                } catch (e) {
-                    console.error('localStorage get error:', e);
-                    return null;
-                }
-            },
-            set(key, value) {
-                try {
-                    localStorage.setItem(key, JSON.stringify({
-                        version: CACHE_VERSION,
-                        cache: value
-                    }));
-                    return true;
-                } catch (e) {
-                    console.error('localStorage set error:', e);
-                    return false;
-                }
-            }
-        };
+  function trainRow(tr, now) {
+    const gone = tr.openAt <= now;
+    let time = C.hhmm(tr.at);
+    if (tr.late || tr.early) time += `<s>${C.hhmm(tr.schedAt)}</s>`;
+    let tag = tr.stops ? 'stops here' : 'passes through';
+    if (gone) tag = 'gone';
+    else if (tr.late) tag = `${tr.late} min late`;
+    else if (tr.early) tag = `${tr.early} min early`;
+    return `<div class="train${gone ? ' gone' : ''}"><span class="t">${time}</span><span class="route">${tr.origin} to ${tr.destination}${tr.freight ? ' (freight)' : ''}</span><span class="tag">${tag}</span></div>`;
+  }
 
-        // Load cache from localStorage
-        function loadCache() {
-            const cached = storage.get(CACHE_KEY);
-            if (!cached) return new Map();
-            
-            try {
-                const trainMap = new Map();
-                Object.entries(cached).forEach(([id, train]) => {
-                    trainMap.set(id, {
-                        ...train,
-                        actualTrainTime: new Date(train.actualTrainTime),
-                        closureTime: new Date(train.closureTime)
-                    });
-                });
-                return trainMap;
-            } catch (e) {
-                console.error('Error parsing cache:', e);
-                return new Map();
-            }
-        }
+  function liftNote(l) {
+    return `<div class="lift-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg><span>Barrier may lift for ${C.secondsWord(l.seconds)} around ${C.hhmm(l.at)}</span></div>`;
+  }
 
-        // Save cache to localStorage
-        function saveCache(trainCache) {
-            try {
-                const cacheObj = {};
-                trainCache.forEach((train, id) => {
-                    cacheObj[id] = {
-                        trainId: train.trainId,
-                        actualTrainTime: train.actualTrainTime.getTime(),
-                        closureTime: train.closureTime.getTime(),
-                        displayTime: train.displayTime,
-                        isDelayed: train.isDelayed,
-                        isArrival: train.isArrival,
-                        destination: train.destination,
-                        origin: train.origin
-                    };
-                });
-                storage.set(CACHE_KEY, cacheObj);
-            } catch (e) {
-                console.error('Error saving cache:', e);
-            }
-        }
+  function renderTrains(closure, now) {
+    if (!closure) { $('trains').classList.add('hidden'); return; }
+    $('trains').classList.remove('hidden');
+    let html = '';
+    closure.trains.forEach((tr, i) => {
+      html += trainRow(tr, now);
+      const lift = closure.lifts.find(l => l.beforeTrain === closure.trains[i + 1]);
+      if (lift) html += liftNote(lift);
+    });
+    $('trainList').innerHTML = html;
+  }
 
-        async function fetchTrainData() {
-            try {
-                // NEW API endpoint (port 5002) - includes passing trains!
-                const response = await fetch('/api/trains/realtime');
+  function renderStrip(periods, closures, now, state) {
+    const total = periods.reduce((s, p) => s + p.seconds, 0) || 1;
+    $('strip').innerHTML = periods.map(p => `<div class="${p.kind}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
+    const axis = ['now'];
+    for (let m = 30; m <= 90; m += 30) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
+    $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
+    // "Next: closed 22:24 to 22:27, then open until 22:32"
+    let text = '';
+    const idx = periods.findIndex(p => p.end > now);
+    const a = periods[idx + 1], b = periods[idx + 2];
+    if (a) {
+      text = `Next: ${a.kind} ${C.hhmm(a.start)} to ${C.hhmm(a.end)}`;
+      if (b) text += `, then ${b.kind} until ${C.hhmm(b.end)}`;
+    } else if (periods[idx] && periods[idx].kind === 'open') {
+      text = 'No closures expected in the next 90 minutes';
+    }
+    $('stripNext').textContent = text;
+  }
 
-                if (!response.ok) {
-                    throw new Error('Failed to fetch train data');
-                }
+  function render() {
+    const now = new Date();
+    const age = C.loader.dataAgeSec(now);
+    const closures = C.buildClosures(C.loader.trains);
+    const state = C.stateAt(closures, now, age);
 
-                const data = await response.json();
-                updateTrainData(data);
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('mainDisplay').innerHTML = `
-                    <div class="crossing-status">
-                        <div class="main-message">Unable to load crossing data</div>
-                        <div class="error">Error: ${error.message}</div>
-                    </div>
-                `;
-            }
-        }
+    document.body.className = 'state-' + state.kind;
+    $('themeColor').setAttribute('content', THEME[state.kind]);
 
-        function parseTrainTime(timeStr, estimatedTimeStr) {
-            let useTime = timeStr;
-            
-            if (estimatedTimeStr && 
-                estimatedTimeStr !== 'On time' && 
-                estimatedTimeStr !== 'Delayed' && 
-                estimatedTimeStr !== 'Cancelled' &&
-                estimatedTimeStr.includes(':')) {
-                useTime = estimatedTimeStr;
-            }
-            
-            if (!useTime || useTime === 'On time' || useTime === 'Delayed' || useTime === 'Cancelled') {
-                return null;
-            }
-            
-            const now = new Date();
-            const [hours, minutes] = useTime.split(':').map(Number);
-            
-            if (isNaN(hours) || isNaN(minutes)) return null;
-            
-            const trainTime = new Date(now);
-            trainTime.setHours(hours, minutes, 0, 0);
-            
-            if (trainTime < now) {
-                trainTime.setDate(trainTime.getDate() + 1);
-            }
-            
-            return trainTime;
-        }
+    // header
+    const upd = $('updated');
+    if (C.loader.lastServerPoll) {
+      upd.textContent = (age >= C.CFG.staleWarnSec ? 'Updating… last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
+      upd.classList.toggle('warn', age >= C.CFG.staleWarnSec);
+    }
 
-        function updateTrainData(data) {
-            const now = new Date();
-            let trains = data.trains || []; // NEW format uses data.trains
-            
-            // Deduplicate by RID
-            const uniqueTrainsMap = new Map();
-            trains.forEach(train => {
-                if (!uniqueTrainsMap.has(train.rid)) {
-                    uniqueTrainsMap.set(train.rid, train);
-                }
-            });
-            trains = Array.from(uniqueTrainsMap.values());
-            
-            const trainCache = loadCache();
-            
-            const newTrains = trains
-                .map(train => {
-                    // NEW format: train.time (scheduled), train.eta (estimated), train.type (stopping/passing)
-                    const trainTime = parseTrainTime(train.time, train.eta);
-                    if (!trainTime) return null;
-                    
-                    const hasLive = train.eta && train.eta !== 'On time' && train.eta.includes(':');
-                    const displayTime = hasLive
-                        ? train.eta + (train.delayed ? ' (delayed)' : train.early ? ' (early)' : '')
-                        : train.time;
-                    
-                    const closureTime = new Date(trainTime.getTime() - CLOSURE_BEFORE_TRAIN_MINUTES * 60000);
-                    const trainId = train.rid;  // FIX: Use RID only, not RID+time
-                    
-                    return {
-                        trainId: trainId,
-                        actualTrainTime: trainTime,
-                        closureTime: closureTime,
-                        displayTime: displayTime,
-                        isDelayed: train.delayed || false,
-                        isPassing: train.type === 'passing', // NEW: track if passing train
-                        type: train.type, // NEW: 'stopping' or 'passing'
-                        destination: train.destination,
-                        origin: train.origin
-                    };
-                })
-                .filter(train => train && train.closureTime > now);
-            
-            newTrains.forEach(train => {
-                trainCache.set(train.trainId, train);
-            });
-            
-            const bufferMilliseconds = CLOSURE_BUFFER_SECONDS * 1000;
-            for (const [trainId, train] of trainCache.entries()) {
-                const trainEndTime = new Date(train.actualTrainTime.getTime() + bufferMilliseconds);
-                if (trainEndTime < now) {
-                    trainCache.delete(trainId);
-                }
-            }
-            
-            saveCache(trainCache);
-            
-            upcomingTrains = Array.from(trainCache.values())
-                .filter(train => {
-                    const closureEnd = new Date(train.actualTrainTime.getTime() + bufferMilliseconds);
-                    return closureEnd > now;
-                })
-                .sort((a, b) => a.closureTime - b.closureTime);
+    const word = $('stateWord'), line = $('stateLine');
+    const count = $('count'), label = $('countLabel'), value = $('countValue'), detail = $('countDetail');
+    $('retry').classList.add('hidden');
+    $('stripPanel').classList.remove('hidden');
+    count.classList.remove('hidden');
 
-            if (!countdownInterval) {
-                startLiveCountdown();
-            }
-        }
+    if (state.kind === 'unavailable') {
+      word.textContent = 'Status unavailable';
+      line.textContent = `Train data hasn't updated for ${C.minutesWord(state.dataAgeSec)}. Crossing status can't be predicted.`;
+      label.textContent = ''; value.textContent = '';
+      detail.textContent = 'Use the lights and barrier at the crossing. This page will update by itself when the data comes back.';
+      $('retry').classList.remove('hidden');
+      $('stripPanel').classList.add('hidden');
+      $('trains').classList.add('hidden');
+      announce('Status unavailable');
+      return;
+    }
 
-        function startLiveCountdown() {
-            countdownInterval = setInterval(updateCountdown, 1000);
-            updateCountdown();
-        }
+    const c = state.closure;
+    if (state.kind === 'closed') {
+      word.textContent = 'Closed';
+      const n = c.trains.length;
+      if (state.inLift) {
+        line.textContent = 'Another train is close behind. The barrier may lift briefly, or stay down.';
+      } else if (state.upcomingLift) {
+        line.textContent = `Expected closed for ${n} trains. The barrier may lift briefly in between.`;
+      } else {
+        line.textContent = n === 1 ? 'Expected closed for 1 train.' : `Expected closed for ${n} trains.`;
+      }
+      label.textContent = 'Expected to open in';
+      value.textContent = C.countdown(state.secondsToChange);
+      let d = `at about ${C.hhmm(c.openAt)}`;
+      if (state.nextAfter) d += `, then open for ${C.minutesWord((state.nextAfter.closeAt - c.openAt) / 1000)}`;
+      detail.textContent = d;
+      $('trainsHeading').textContent = 'Trains in this closure';
+    } else if (state.kind === 'closing') {
+      word.textContent = 'Closing';
+      line.textContent = 'Expected to close within a minute.';
+      label.textContent = 'Expected to close in';
+      value.textContent = C.countdown(state.secondsToChange);
+      detail.textContent = `for ${C.aboutMinutes(c.durationSec)}, until ${C.hhmm(c.openAt)}`;
+      $('trainsHeading').textContent = 'Trains in this closure';
+    } else if (c) {
+      word.textContent = 'Open';
+      line.textContent = `No closure expected for another ${C.minutesWord(state.secondsToChange)}.`;
+      label.textContent = 'Expected to close in';
+      value.textContent = C.countdown(state.secondsToChange);
+      detail.textContent = `at about ${C.hhmm(c.closeAt)}, for ${C.minutesWord(c.durationSec)}`;
+      $('trainsHeading').textContent = 'Trains in the next closure';
+    } else {
+      word.textContent = 'Open';
+      line.textContent = 'No closure expected in the next 90 minutes.';
+      count.classList.add('hidden');
+    }
 
-        function updateCountdown() {
-            const now = new Date();
-            const trainCache = loadCache();
-            const bufferMilliseconds = CLOSURE_BUFFER_SECONDS * 1000;
-            
-            let cacheChanged = false;
-            for (const [trainId, train] of trainCache.entries()) {
-                const trainEndTime = new Date(train.actualTrainTime.getTime() + bufferMilliseconds);
-                if (trainEndTime < now) {
-                    trainCache.delete(trainId);
-                    cacheChanged = true;
-                }
-            }
-            
-            if (cacheChanged) {
-                saveCache(trainCache);
-            }
-            
-            upcomingTrains = Array.from(trainCache.values())
-                .filter(train => {
-                    const closureEnd = new Date(train.actualTrainTime.getTime() + bufferMilliseconds);
-                    return closureEnd > now;
-                })
-                .sort((a, b) => a.closureTime - b.closureTime);
-            
-            if (upcomingTrains.length === 0) {
-                // DEFENSIVE: If we were just in a CLOSED/CLOSING state, don't immediately show OPEN
-                // This prevents flashing during cache updates
-                const timeSinceLastState = lastStateTime ? (now - lastStateTime) / 1000 : Infinity;
-                if ((lastKnownState === 'closed' || lastKnownState === 'closing') && timeSinceLastState < 30) {
-                    // Keep showing current state briefly to prevent flash
-                    // The next data refresh will correct this
-                    return;
-                }
-                
-                lastKnownState = 'open';
-                lastStateTime = now;
-                document.body.className = '';
-                document.getElementById('mainDisplay').innerHTML = `
-                    <div class="crossing-status">
-                        <div class="main-message">Crossing is OPEN</div>
-                        <div class="train-details">No trains in next 90 minutes</div>
-                    </div>
-                `;
-                return;
-            }
+    renderStrip(C.buildPeriods(closures, now), closures, now, state);
+    renderTrains(c, now);
+    announce(word.textContent);
+  }
 
-            const closureGroups = [];
-            let currentGroup = [upcomingTrains[0]];
-            
-            for (let i = 1; i < upcomingTrains.length; i++) {
-                const prevTrain = upcomingTrains[i - 1];
-                const currentTrain = upcomingTrains[i];
-                const prevTrainEnd = new Date(prevTrain.actualTrainTime.getTime() + 12000);
-                const gapSeconds = (currentTrain.closureTime - prevTrainEnd) / 1000;
-                
-                if (gapSeconds < MERGE_GAP_SECONDS) {
-                    currentGroup.push(currentTrain);
-                } else {
-                    closureGroups.push(currentGroup);
-                    currentGroup = [currentTrain];
-                }
-            }
-            closureGroups.push(currentGroup);
+  function announce(text) {
+    if (text !== lastAnnounced) { $('live').textContent = text; lastAnnounced = text; }
+  }
 
-            let nextClosure = null;
-            for (const group of closureGroups) {
-                const lastTrain = group[group.length - 1];
-                const closureEnd = new Date(lastTrain.actualTrainTime.getTime() + 12000);
-                if (closureEnd > now) {
-                    nextClosure = group;
-                    break;
-                }
-            }
+  async function refresh() {
+    try {
+      await C.loader.fetch();
+      fetchFailures = 0;
+    } catch (e) {
+      fetchFailures++;
+      console.warn('fetch failed', e);
+    }
+    render();
+  }
 
-            if (!nextClosure) {
-                // DEFENSIVE: If we were just CLOSED/CLOSING, don't immediately show OPEN
-                const timeSinceLastState = lastStateTime ? (now - lastStateTime) / 1000 : Infinity;
-                if ((lastKnownState === 'closed' || lastKnownState === 'closing') && timeSinceLastState < 30) {
-                    return; // Keep current display, wait for data refresh
-                }
-                
-                lastKnownState = 'open';
-                lastStateTime = now;
-                document.body.className = '';
-                document.getElementById('mainDisplay').innerHTML = `
-                    <div class="crossing-status">
-                        <div class="main-message">Crossing is OPEN</div>
-                        <div class="train-details">No more trains in next 90 minutes</div>
-                    </div>
-                `;
-                return;
-            }
-
-            const firstTrain = nextClosure[0];
-            const lastTrain = nextClosure[nextClosure.length - 1];
-            
-            const secondsUntilClosure = Math.floor((firstTrain.closureTime - now) / 1000);
-            const minutesUntilClosure = Math.floor(secondsUntilClosure / 60);
-            const secondsRemaining = secondsUntilClosure % 60;
-            
-            const closureEndTime = new Date(lastTrain.actualTrainTime.getTime() + 12000);
-            const secondsUntilClosureEnd = Math.floor((closureEndTime - now) / 1000);
-            const closureEndMinutes = Math.floor(secondsUntilClosureEnd / 60);
-            const closureEndSeconds = secondsUntilClosureEnd % 60;
-            
-            const closureDuration = Math.round((closureEndTime - firstTrain.closureTime) / 1000 / 60);
-            
-            // CHECK: Are we currently in a brief opening within this closure group?
-            // This happens when:
-            // 1. The next closure starts soon (within MERGE_GAP_SECONDS)
-            // 2. AND we have multiple trains in the group (indicating trains have been grouped together)
-            // 3. AND the gap is short enough to be a "brief" opening (not a real OPEN period)
-            let inBriefOpening = false;
-            let briefOpeningEndsIn = 0;
-            
-            // Check if any train in the current group has already passed
-            // This indicates we're mid-closure and in a brief opening
-            if (secondsUntilClosure > 0 && nextClosure.length >= 1) {
-                for (let i = 0; i < nextClosure.length; i++) {
-                    const train = nextClosure[i];
-                    const trainEndTime = new Date(train.actualTrainTime.getTime() + 12000);
-                    if (trainEndTime < now) {
-                        // This train has passed, so we're in a brief opening
-                        inBriefOpening = true;
-                        briefOpeningEndsIn = secondsUntilClosure;
-                        break;
-                    }
-                }
-            }
-            
-            // Additional check: if closure starts very soon (< 90 seconds) AND there are multiple trains
-            // This catches the case where the passed train was just removed from cache
-            // but we're clearly still in a busy period
-            if (!inBriefOpening && secondsUntilClosure > 0 && secondsUntilClosure <= 90 && nextClosure.length >= 2) {
-                inBriefOpening = true;
-                briefOpeningEndsIn = secondsUntilClosure;
-            }
-            
-            let bodyClass, mainMessage, timeInfo, trainDetails, openingMessage;
-
-            // Count passing vs stopping trains in this closure
-            const passingCount = nextClosure.filter(t => t.isPassing).length;
-            const stoppingCount = nextClosure.filter(t => !t.isPassing).length;
-            
-            // Count directions (to London = destination contains LIVST or origin doesn't)
-            const LONDON_CODES = ['LIVST', 'LVRPLST', 'Liverpool Street'];
-            const toLondonCount = nextClosure.filter(t => {
-                const dest = t.destination || '';
-                return LONDON_CODES.some(code => dest.includes(code) || dest === code);
-            }).length;
-            const fromLondonCount = nextClosure.length - toLondonCount;
-            
-            // Build train type description
-            const trainTypeParts = [];
-            if (stoppingCount > 0) trainTypeParts.push(`${stoppingCount} stopping`);
-            if (passingCount > 0) trainTypeParts.push(`${passingCount} passing`);
-            const trainTypeDesc = trainTypeParts.length > 0 ? trainTypeParts.join(', ') : `${nextClosure.length} trains`;
-            
-            // Build direction description
-            const directionParts = [];
-            if (toLondonCount > 0) directionParts.push(`↑ ${toLondonCount} to London`);
-            if (fromLondonCount > 0) directionParts.push(`↓ ${fromLondonCount} from London`);
-            const directionDesc = directionParts.join('  •  ');
-
-            if (secondsUntilClosure <= 0 && secondsUntilClosureEnd > 0) {
-                // CLOSED - train closure is active
-                bodyClass = 'closed';
-                lastKnownState = 'closed';
-                lastStateTime = now;
-                mainMessage = 'Roydon level crossing is CLOSED';
-                
-                if (closureEndMinutes > 0) {
-                    timeInfo = `Opens in ${closureEndMinutes}:${closureEndSeconds.toString().padStart(2, '0')}`;
-                } else {
-                    timeInfo = `Opens in ${closureEndSeconds}s`;
-                }
-                
-                const trainTimeDisplay = nextClosure.length === 1 
-                    ? firstTrain.displayTime
-                    : `${firstTrain.displayTime.split(' ')[0]} to ${lastTrain.displayTime.split(' ')[0]}`;
-                    
-                trainDetails = `
-                    <div>(${trainTimeDisplay})</div>
-                    <div class="train-breakdown">
-                        ${stoppingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">train</span> ${stoppingCount} stopping</span>` : ''}
-                        ${passingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">directions_railway</span> ${passingCount} passing</span>` : ''}
-                    </div>
-                    <div class="direction-breakdown">${directionDesc}</div>
-                `;
-                
-            } else if (inBriefOpening && briefOpeningEndsIn > 0 && briefOpeningEndsIn <= MERGE_GAP_SECONDS) {
-                // BRIEF OPENING - gate may be open briefly between trains in a group
-                bodyClass = 'closing'; // Amber - warning state
-                lastKnownState = 'closed'; // Treat as closed for state tracking
-                lastStateTime = now;
-                mainMessage = 'Brief opening - next train soon';
-                
-                if (briefOpeningEndsIn >= 60) {
-                    const mins = Math.floor(briefOpeningEndsIn / 60);
-                    const secs = briefOpeningEndsIn % 60;
-                    timeInfo = `Closes again in ${mins}:${secs.toString().padStart(2, '0')}`;
-                } else {
-                    timeInfo = `Closes again in ${briefOpeningEndsIn}s`;
-                }
-                
-                const trainTimeDisplay = nextClosure.length === 1 
-                    ? firstTrain.displayTime
-                    : `${firstTrain.displayTime.split(' ')[0]} to ${lastTrain.displayTime.split(' ')[0]}`;
-                    
-                trainDetails = `
-                    <div>(${trainTimeDisplay})</div>
-                    <div class="train-breakdown">
-                        ${stoppingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">train</span> ${stoppingCount} stopping</span>` : ''}
-                        ${passingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">directions_railway</span> ${passingCount} passing</span>` : ''}
-                    </div>
-                    <div class="direction-breakdown">${directionDesc}</div>
-                `;
-                
-            } else if (minutesUntilClosure < CROSSING_WARNING_MINUTES && secondsUntilClosure > 0) {
-                bodyClass = 'closing';
-                lastKnownState = 'closing';
-                lastStateTime = now;
-                const countdownStr = minutesUntilClosure > 0 
-                    ? `${minutesUntilClosure}:${secondsRemaining.toString().padStart(2, '0')}`
-                    : `${secondsRemaining}s`;
-                mainMessage = 'Roydon level crossing will close in';
-                timeInfo = `${countdownStr} for ${closureDuration} minutes`;
-                
-                const trainTimeDisplay = nextClosure.length === 1 
-                    ? firstTrain.displayTime
-                    : `${firstTrain.displayTime.split(' ')[0]} to ${lastTrain.displayTime.split(' ')[0]}`;
-                    
-                trainDetails = `
-                    <div>(${trainTimeDisplay})</div>
-                    <div class="train-breakdown">
-                        ${stoppingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">train</span> ${stoppingCount} stopping</span>` : ''}
-                        ${passingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">directions_railway</span> ${passingCount} passing</span>` : ''}
-                    </div>
-                    <div class="direction-breakdown">${directionDesc}</div>
-                `;
-                
-            } else {
-                bodyClass = '';
-                lastKnownState = 'open';
-                lastStateTime = now;
-                mainMessage = 'Roydon level crossing will close in';
-                timeInfo = `${minutesUntilClosure} minutes for ${closureDuration} minutes`;
-                
-                const trainTimeDisplay = nextClosure.length === 1 
-                    ? firstTrain.displayTime
-                    : `${firstTrain.displayTime.split(' ')[0]} to ${lastTrain.displayTime.split(' ')[0]}`;
-                    
-                trainDetails = `
-                    <div>(${trainTimeDisplay})</div>
-                    <div class="train-breakdown">
-                        ${stoppingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">train</span> ${stoppingCount} stopping</span>` : ''}
-                        ${passingCount > 0 ? `<span class="breakdown-item"><span class="material-icons">directions_railway</span> ${passingCount} passing</span>` : ''}
-                    </div>
-                    <div class="direction-breakdown">${directionDesc}</div>
-                `;
-            }
-
-            // Find ALL short openings within this closure group
-            let shortOpenings = [];
-            if (nextClosure.length > 1) {
-                for (let i = 0; i < nextClosure.length - 1; i++) {
-                    const trainEnd = new Date(nextClosure[i].actualTrainTime.getTime() + 12000);
-                    const nextClosureStart = nextClosure[i + 1].closureTime;
-                    const gapSeconds = Math.round((nextClosureStart - trainEnd) / 1000);
-                    const gapMinutes = Math.round(gapSeconds / 60);
-                    
-                    // If there's a gap of 30 seconds or more, it's a potential opening
-                    if (gapSeconds >= 30 && gapSeconds < MERGE_GAP_SECONDS) {
-                        const openTime = trainEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-                        if (gapSeconds < 90) {
-                            shortOpenings.push(`~${openTime} (~${gapSeconds}s)`);
-                        } else {
-                            shortOpenings.push(`~${openTime} (~${gapMinutes}m)`);
-                        }
-                    }
-                }
-            }
-            
-            // Build opening message
-            if (shortOpenings.length > 0 && secondsUntilClosure < 600) { // Only show if within 10 minutes
-                if (shortOpenings.length === 1) {
-                    openingMessage = `Brief opening possible at ${shortOpenings[0]}`;
-                } else if (shortOpenings.length <= 3) {
-                    openingMessage = `Brief openings possible: ${shortOpenings.join(', ')}`;
-                } else {
-                    openingMessage = `${shortOpenings.length} brief openings possible between trains`;
-                }
-            }
-
-            document.body.className = bodyClass;
-            document.getElementById('mainDisplay').innerHTML = `
-                <div class="crossing-status">
-                    <div class="main-message">${mainMessage}</div>
-                    <div class="time-info">${timeInfo}</div>
-                    <div class="train-details">${trainDetails}</div>
-                    ${openingMessage ? `<div class="short-opening">${openingMessage}</div>` : ''}
-                </div>
-            `;
-        }
-
-        // Start fetching data
-        fetchTrainData();
-        setInterval(fetchTrainData, REFRESH_INTERVAL);
-    </script>
+  $('retry').addEventListener('click', refresh);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  refresh();
+  setInterval(refresh, 30000);
+  setInterval(render, 1000);
+})();
+</script>
 </body>
 </html>
