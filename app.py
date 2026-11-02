@@ -23,15 +23,18 @@ PORT               Set by Railway automatically.
 """
 
 import os
+import csv
+import io
 import json
 import time
+import uuid
 import logging
 import threading
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import requests
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request, Response
 from flask_cors import CORS
 
 # --------------------------------------------------------------------------
@@ -47,6 +50,8 @@ RTT_API_VERSION = os.environ.get('RTT_API_VERSION')  # optional pin
 POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 60))
 WINDOW_MINUTES = int(os.environ.get('WINDOW_MINUTES', 120))
 API_PORT = int(os.environ.get('PORT', 5002))
+DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
+OBS_FILE = os.path.join(DATA_DIR, 'observations.json')
 
 SERVE_WINDOW_MINUTES = 90       # what /api/trains/realtime returns
 SERVE_PAST_MINUTES = 5          # keep very recent trains so the UI can finish a closure
@@ -415,6 +420,94 @@ def timeline():
     return send_from_directory('templates', 'timeline.html')
 
 
+@app.route('/log')
+def log_page():
+    return send_from_directory('templates', 'log.html')
+
+
+@app.route('/log/review')
+def review_page():
+    return send_from_directory('templates', 'review.html')
+
+
+# --------------------------------------------------------------------------
+# Observations (what you actually saw at the crossing) - for calibrating
+# the lead/trail/merge assumptions. Stored as JSON under DATA_DIR.
+# --------------------------------------------------------------------------
+
+obs_lock = threading.Lock()
+
+
+def _load_observations():
+    try:
+        with open(OBS_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def _save_observations(obs):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    tmp = OBS_FILE + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(obs, f)
+    os.replace(tmp, OBS_FILE)
+
+
+@app.route('/api/observations', methods=['GET'])
+def list_observations():
+    with obs_lock:
+        return jsonify(_load_observations())
+
+
+@app.route('/api/observations', methods=['POST'])
+def add_observation():
+    body = request.get_json(silent=True) or {}
+    if body.get('event') not in ('lights', 'down', 'train', 'up'):
+        return jsonify({'error': 'event must be one of lights, down, train, up'}), 400
+    obs = {
+        'id': uuid.uuid4().hex[:12],
+        'event': body['event'],
+        'at': body.get('at') or datetime.now(LONDON).isoformat(),
+        'note': (body.get('note') or '')[:200],
+        'snapshot': body.get('snapshot') or {},
+        'received': datetime.now(LONDON).isoformat(),
+    }
+    with obs_lock:
+        all_obs = _load_observations()
+        all_obs.append(obs)
+        _save_observations(all_obs)
+    log.info('Observation: %s at %s (%s)', obs['event'], obs['at'], obs['note'])
+    return jsonify(obs), 201
+
+
+@app.route('/api/observations/<obs_id>', methods=['DELETE'])
+def delete_observation(obs_id):
+    with obs_lock:
+        all_obs = _load_observations()
+        kept = [o for o in all_obs if o.get('id') != obs_id]
+        _save_observations(kept)
+    return jsonify({'deleted': len(all_obs) - len(kept)})
+
+
+@app.route('/api/observations.csv', methods=['GET'])
+def observations_csv():
+    with obs_lock:
+        all_obs = _load_observations()
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(['at', 'event', 'note', 'app_state', 'predicted_close', 'predicted_open',
+                'nearest_train', 'nearest_train_at', 'closure_trains', 'data_age_sec', 'lead', 'trail', 'merge'])
+    for o in all_obs:
+        s = o.get('snapshot') or {}
+        cfg = s.get('cfg') or {}
+        w.writerow([o.get('at'), o.get('event'), o.get('note'), s.get('state'), s.get('predicted_close'),
+                    s.get('predicted_open'), s.get('nearest_train'), s.get('nearest_train_at'),
+                    s.get('closure_trains'), s.get('data_age_sec'), cfg.get('lead'), cfg.get('trail'), cfg.get('merge')])
+    return Response(out.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename=roydon-observations.csv'})
+
+
 @app.route('/api/trains/realtime', methods=['GET'])
 def get_realtime_trains():
     now = datetime.now(LONDON)
@@ -437,6 +530,7 @@ def get_realtime_trains():
             'feed_connected': feed_ok,
             'darwin_connected': feed_ok,        # kept for older front-end builds
             'last_poll': last_poll_at.isoformat() if last_poll_at else None,
+            'data_age_sec': int((now - last_poll_at).total_seconds()) if last_poll_at else None,
             'last_error': last_poll_error,
         })
 

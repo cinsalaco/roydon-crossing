@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#15171a">
+<title>Roydon crossing – log what you see</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+  :root { --green: #0E6B3A; --amber: #E08A00; --red: #B81F1E; --ink: #15171a; --bg: #F2F3F5; --rule: rgba(21,23,26,0.14); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Archivo', system-ui, sans-serif; font-variant-numeric: tabular-nums; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  .page { max-width: 520px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom)); }
+  .header { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .back { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; color: inherit; text-decoration: none; }
+  h1 { font-size: 20px; font-weight: 700; flex: 1; }
+  .now { font-size: 14px; opacity: 0.7; white-space: nowrap; }
+
+  .predict { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid var(--rule); font-size: 14px; line-height: 1.45; }
+  .predict b { font-weight: 700; }
+  .predict .state { font-size: 18px; font-weight: 800; }
+  .predict .state.open { color: var(--green); } .predict .state.closing { color: var(--amber); } .predict .state.closed { color: var(--red); }
+
+  .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+  button.ev { min-height: 92px; border: 0; border-radius: 14px; font-family: inherit; font-size: 17px; font-weight: 700; line-height: 1.2; color: #fff; cursor: pointer; padding: 12px; text-align: left; }
+  button.ev small { display: block; font-size: 12px; font-weight: 500; opacity: 0.85; margin-top: 4px; }
+  button.ev:active { transform: scale(0.98); }
+  .ev.lights { background: var(--amber); color: #1a1200; }
+  .ev.down { background: var(--red); }
+  .ev.train { background: #3a3f47; }
+  .ev.up { background: var(--green); }
+  button.ev:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+  .note { margin-top: 12px; display: flex; gap: 8px; }
+  .note input { flex: 1; min-height: 44px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; font: inherit; font-size: 15px; background: #fff; }
+
+  .toast { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--green); min-height: 20px; }
+  .toast.err { color: var(--red); }
+
+  h2 { font-size: 15px; font-weight: 600; margin-top: 26px; opacity: 0.8; }
+  .list { margin-top: 6px; }
+  .row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 14px; }
+  .row .t { font-weight: 700; width: 70px; flex-shrink: 0; }
+  .row .ev { flex: 1; }
+  .row .delta { white-space: nowrap; font-weight: 600; }
+  .row .delta.good { color: var(--green); } .row .delta.bad { color: var(--red); }
+  .row button { background: none; border: 0; color: var(--red); font: inherit; font-size: 13px; cursor: pointer; min-height: 32px; }
+  .actions { display: flex; gap: 16px; margin-top: 18px; font-size: 14px; }
+  .actions a { color: var(--ink); }
+  .help { font-size: 13px; opacity: 0.7; line-height: 1.45; margin-top: 18px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="header">
+    <a class="back" href="/" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+    <h1>Log what you see</h1>
+    <span class="now" id="now"></span>
+  </div>
+
+  <div class="predict" id="predict">Loading the app's current prediction…</div>
+
+  <div class="buttons">
+    <button class="ev lights" data-ev="lights">Lights started<small>I saw them begin to flash</small></button>
+    <button class="ev down" data-ev="down">Already closed<small>I arrived and it was down</small></button>
+    <button class="ev train" data-ev="train">Train passed<small>Front of the train at the road</small></button>
+    <button class="ev up" data-ev="up">Barrier up<small>It started to rise</small></button>
+  </div>
+  <div class="note"><input id="note" placeholder="Optional note, e.g. 2 trains, express first" aria-label="Note"></div>
+  <div class="toast" id="toast"></div>
+
+  <h2>Today</h2>
+  <div class="list" id="list"></div>
+
+  <div class="actions">
+    <a href="/log/review">Review against predictions</a>
+    <a href="/api/observations.csv">Download CSV</a>
+  </div>
+  <p class="help">Tap as it happens; the app records the exact second and what it was predicting at that moment. Log "Already closed" when you pull up to a down barrier and didn't see it go down. Each tap also captures which train the app thinks it is.</p>
+</main>
+
+<script src="/static/crossing.js"></script>
+<script>
+(function () {
+  const C = window.Crossing;
+  const $ = id => document.getElementById(id);
+  const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up' };
+  let observations = [];
+
+  function snapshot(now) {
+    const closures = C.buildClosures(C.loader.trains);
+    const st = C.stateAt(closures, now, C.loader.dataAgeSec(now));
+    const c = st.closure;
+    const nearest = C.loader.trains.slice().sort((a, b) => Math.abs(a.at - now) - Math.abs(b.at - now))[0] || null;
+    return {
+      state: st.kind,
+      predicted_close: c ? c.closeAt.toISOString() : null,
+      predicted_open: c ? c.openAt.toISOString() : null,
+      closure_trains: c ? c.trains.map(t => `${t.headcode || ''} ${C.hhmm(t.at)} ${t.origin}>${t.destination}${t.stops ? ' stops' : ''}`).join('; ') : '',
+      nearest_train: nearest ? `${nearest.headcode || ''} ${C.hhmm(nearest.at)} ${nearest.origin}>${nearest.destination}${nearest.stops ? ' stops' : ' passes'}${nearest.toLondon ? ' toLondon' : ' fromLondon'}` : '',
+      nearest_train_at: nearest ? nearest.at.toISOString() : null,
+      data_age_sec: C.loader.dataAgeSec(now),
+      cfg: { lead: C.CFG.leadSec, trail: C.CFG.trailSec, merge: C.CFG.mergeGapSec },
+    };
+  }
+
+  function renderPrediction() {
+    const now = new Date();
+    $('now').textContent = C.hhmmss(now);
+    const closures = C.buildClosures(C.loader.trains);
+    const st = C.stateAt(closures, now, C.loader.dataAgeSec(now));
+    let html = `App says: <span class="state ${st.kind}">${st.kind[0].toUpperCase() + st.kind.slice(1)}</span>`;
+    if (st.closure) {
+      html += `<br>Predicted <b>down ${C.hhmmss(st.closure.closeAt)}</b>, <b>up ${C.hhmmss(st.closure.openAt)}</b>`;
+      html += `<br>${st.closure.trains.map(t => `${C.hhmm(t.at)} ${t.origin} to ${t.destination}${t.stops ? ' (stops)' : ''}${t.toLondon ? ' ↑' : ' ↓'}`).join('<br>')}`;
+    }
+    $('predict').innerHTML = html;
+  }
+
+  function deltaText(o) {
+    const s = o.snapshot || {};
+    let ref = null;
+    if (o.event === 'lights' || o.event === 'down') ref = s.predicted_close;
+    if (o.event === 'up') ref = s.predicted_open;
+    if (o.event === 'train') ref = s.nearest_train_at;
+    if (!ref) return '';
+    const d = Math.round((new Date(o.at) - new Date(ref)) / 1000);
+    if (o.event === 'down') return d >= 0 ? 'consistent' : `${-d}s before predicted`;
+    const sign = d > 0 ? '+' : '';
+    return `${sign}${d}s vs predicted`;
+  }
+
+  function renderList() {
+    const today = new Date().toDateString();
+    const rows = observations.filter(o => new Date(o.at).toDateString() === today).reverse();
+    $('list').innerHTML = rows.map(o => {
+      const dt = deltaText(o);
+      const d = Math.abs(parseInt(dt) || 0);
+      return `<div class="row"><span class="t">${C.hhmmss(new Date(o.at))}</span><span class="ev">${NAMES[o.event] || o.event}${o.note ? ' – ' + o.note : ''}<br><small style="opacity:.7">${(o.snapshot || {}).nearest_train || ''}</small></span><span class="delta ${dt.includes('consistent') || d <= 30 ? 'good' : 'bad'}">${dt}</span><button data-id="${o.id}" aria-label="Delete">✕</button></div>`;
+    }).join('') || '<div class="row" style="opacity:.6">Nothing logged yet today.</div>';
+    $('list').querySelectorAll('button').forEach(b => b.addEventListener('click', () => remove(b.dataset.id)));
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/observations', { cache: 'no-store' });
+      observations = await r.json();
+    } catch (e) { observations = []; }
+    renderList();
+  }
+
+  async function log(ev) {
+    const now = new Date();
+    const obs = { event: ev, at: now.toISOString(), note: $('note').value.trim(), snapshot: snapshot(now) };
+    try {
+      const r = await fetch('/api/observations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obs) });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      $('toast').className = 'toast'; $('toast').textContent = `${NAMES[ev]} logged at ${C.hhmmss(now)}`;
+      $('note').value = '';
+      if (navigator.vibrate) navigator.vibrate(30);
+      await load();
+    } catch (e) {
+      $('toast').className = 'toast err'; $('toast').textContent = 'Could not save – check signal and try again';
+    }
+  }
+
+  async function remove(id) {
+    await fetch('/api/observations/' + id, { method: 'DELETE' });
+    await load();
+  }
+
+  document.querySelectorAll('button.ev').forEach(b => b.addEventListener('click', () => log(b.dataset.ev)));
+
+  async function refresh() {
+    try { await C.loader.fetch(); } catch (e) {}
+    renderPrediction();
+  }
+  refresh(); load();
+  setInterval(refresh, 30000);
+  setInterval(renderPrediction, 1000);
+})();
+</script>
+</body>
+</html>

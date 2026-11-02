@@ -73,7 +73,24 @@ Open http://localhost:5002. Run the parser test with `python tests_parser.py`.
 | `GET /api/status` | Feed health, API version, entitlements, rate limits |
 | `GET /api/debug` | Every cached train, including delay details |
 | `GET /api/raw` | Last untouched RTT response (for diagnosing field mappings) |
+| `GET /log` | Observation logger: tap what you see at the crossing to calibrate the model |
+| `GET /log/review` | Observations lined up against what the app predicted |
+| `GET /api/observations` | Logged observations (JSON); `.csv` for a download |
 | `GET /health` | Health check |
+
+## Calibrating the closure model
+
+The four assumptions live at the top of `static/crossing.js` (`CFG`): barrier
+down 120 s before a train, up 12 s after, closures merge when the gap would be
+under 90 s. Use `/log` at the crossing, then `/log/review` to see how far out
+each one is. Observations are stored in `DATA_DIR/observations.json`
+(default `./data`, which is lost on redeploy unless `DATA_DIR` points at a
+Railway volume) - download the CSV regularly.
+
+## Add to your home screen
+
+Open the site in Safari, tap Share, then "Add to Home Screen". It installs as
+a full-screen app with its own icon.
 
 ## Data source
 
