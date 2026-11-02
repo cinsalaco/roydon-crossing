@@ -22,8 +22,16 @@
   .predict .state { font-size: 18px; font-weight: 800; }
   .predict .state.open { color: var(--green); } .predict .state.closing { color: var(--amber); } .predict .state.closed { color: var(--red); }
 
-  .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
-  button.ev { min-height: 92px; border: 0; border-radius: 14px; font-family: inherit; font-size: 17px; font-weight: 700; line-height: 1.2; color: #fff; cursor: pointer; padding: 12px; text-align: left; }
+  .steps { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+  .step-head { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .step-head small { font-weight: 500; opacity: 0.6; font-size: 13px; }
+  .num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; font-weight: 700; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .step.done button.ev { opacity: 0.35; }
+  .step.done .step-head { opacity: 0.5; }
+  .session { margin-top: 12px; font-size: 14px; font-weight: 600; min-height: 20px; }
+  .session .reset { background: none; border: 0; color: var(--red); font: inherit; cursor: pointer; margin-left: 10px; min-height: 32px; }
+  button.ev { width: 100%; min-height: 84px; border: 0; border-radius: 14px; font-family: inherit; font-size: 17px; font-weight: 700; line-height: 1.2; color: #fff; cursor: pointer; padding: 12px; text-align: left; }
   button.ev small { display: block; font-size: 12px; font-weight: 500; opacity: 0.85; margin-top: 4px; }
   button.ev:active { transform: scale(0.98); }
   .ev.lights { background: var(--amber); color: #1a1200; }
@@ -61,13 +69,25 @@
 
   <div class="predict" id="predict">Loading the app's current prediction…</div>
 
-  <div class="buttons">
-    <button class="ev lights" data-ev="lights">Lights started<small>I saw them begin to flash</small></button>
-    <button class="ev down" data-ev="down">Already closed<small>I arrived and it was down</small></button>
-    <button class="ev train" data-ev="train">Train passed<small>Front of the train at the road</small></button>
-    <button class="ev up" data-ev="up">Barrier up<small>It started to rise</small></button>
+  <div class="steps">
+    <div class="step" id="step1">
+      <div class="step-head"><span class="num">1</span>How did this closure start? <small>Press one</small></div>
+      <div class="pair">
+        <button class="ev lights" data-ev="lights">Lights started<small>I saw the amber come on, or the reds, or the barrier begin to drop</small></button>
+        <button class="ev down" data-ev="down">Already closed<small>It was down when I arrived; I didn't see it close</small></button>
+      </div>
+    </div>
+    <div class="step" id="step2">
+      <div class="step-head"><span class="num">2</span>Each train <small>Press once per train</small></div>
+      <button class="ev train" data-ev="train">Train passed<small>The front of the train reaches the road</small></button>
+    </div>
+    <div class="step" id="step3">
+      <div class="step-head"><span class="num">3</span>Closure ends <small>Press once</small></div>
+      <button class="ev up" data-ev="up">Barrier up<small>The barriers start to rise</small></button>
+    </div>
   </div>
-  <div class="note"><input id="note" placeholder="Optional note, e.g. 2 trains, express first" aria-label="Note"></div>
+  <div class="session" id="session"></div>
+  <div class="note"><input id="note" placeholder="Optional note, e.g. barrier stayed down, no train" aria-label="Note"></div>
   <div class="toast" id="toast"></div>
 
   <h2>Today</h2>
@@ -77,7 +97,7 @@
     <a href="/log/review">Review against predictions</a>
     <a href="/api/observations.csv">Download CSV</a>
   </div>
-  <p class="help">Tap as it happens; the app records the exact second and what it was predicting at that moment. Log "Already closed" when you pull up to a down barrier and didn't see it go down. Each tap also captures which train the app thinks it is.</p>
+  <p class="help">Each closure is three presses: step 1 (one of the two), step 2 once per train, step 3 once. Every press records the exact second and what the app was predicting at that moment. If you have to leave before the barrier goes up, just skip step 3.</p>
 </main>
 
 <script src="/static/crossing.js"></script>
@@ -87,6 +107,25 @@
   const $ = id => document.getElementById(id);
   const NAMES = { lights: 'Lights started', down: 'Already closed', train: 'Train passed', up: 'Barrier up' };
   let observations = [];
+  let session = JSON.parse(localStorage.getItem('logSession') || 'null') || { started: null, trains: 0, startedAt: null };
+
+  function saveSession() { localStorage.setItem('logSession', JSON.stringify(session)); }
+  function renderSession() {
+    // a session older than 20 minutes is stale – start fresh
+    if (session.startedAt && Date.now() - new Date(session.startedAt) > 20 * 60000) { session = { started: null, trains: 0, startedAt: null }; saveSession(); }
+    $('step1').classList.toggle('done', !!session.started);
+    $('step2').classList.toggle('done', false);
+    $('step3').classList.toggle('done', !session.started);
+    let txt = '';
+    if (session.started) {
+      txt = `This closure: ${NAMES[session.started]} ${C.hhmmss(new Date(session.startedAt))}` + (session.trains ? `, ${session.trains} train${session.trains > 1 ? 's' : ''} passed` : '') + ' – now waiting for the barrier to go up';
+      txt += ' <button class="reset" id="resetSession" type="button">Start over</button>';
+    } else {
+      txt = 'No closure in progress. Start with step 1.';
+    }
+    $('session').innerHTML = txt;
+    const r = $('resetSession'); if (r) r.addEventListener('click', () => { session = { started: null, trains: 0, startedAt: null }; saveSession(); renderSession(); });
+  }
 
   function snapshot(now) {
     const closures = C.buildClosures(C.loader.trains);
@@ -159,6 +198,10 @@
       $('toast').className = 'toast'; $('toast').textContent = `${NAMES[ev]} logged at ${C.hhmmss(now)}`;
       $('note').value = '';
       if (navigator.vibrate) navigator.vibrate(30);
+      if (ev === 'lights' || ev === 'down') { session = { started: ev, trains: 0, startedAt: now.toISOString() }; }
+      else if (ev === 'train') { session.trains += 1; if (!session.started) { session.started = 'down'; session.startedAt = now.toISOString(); } }
+      else if (ev === 'up') { session = { started: null, trains: 0, startedAt: null }; }
+      saveSession(); renderSession();
       await load();
     } catch (e) {
       $('toast').className = 'toast err'; $('toast').textContent = 'Could not save – check signal and try again';
@@ -176,7 +219,7 @@
     try { await C.loader.fetch(); } catch (e) {}
     renderPrediction();
   }
-  refresh(); load();
+  refresh(); load(); renderSession();
   setInterval(refresh, 30000);
   setInterval(renderPrediction, 1000);
 })();
