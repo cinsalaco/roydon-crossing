@@ -250,11 +250,13 @@ def parse_service(service):
         return None
 
     effective = realtime or scheduled
-    delayed = False
+    delayed = False   # running later than scheduled
+    early = False     # running earlier than scheduled
     eta = None
     if realtime and hhmm(realtime) != hhmm(scheduled):
-        delayed = True
         eta = hhmm(realtime)
+        delayed = realtime > scheduled
+        early = realtime < scheduled
 
     operator = meta.get('operator') or {}
     origin = (service.get('origin') or [{}])[0]
@@ -271,6 +273,7 @@ def parse_service(service):
         'parsed_time': to_london(effective).isoformat(),
         'eta': eta,
         'delayed': delayed,
+        'early': early,
         'origin': code_of(origin),
         'destination': code_of(destination),
         'toc': operator.get('code'),
@@ -369,11 +372,13 @@ def poll_once():
 
     stopping = sum(1 for t in parsed.values() if t['type'] == 'stopping')
     delayed = sum(1 for t in parsed.values() if t['delayed'])
-    log.info('Poll OK: %d trains (%d stopping, %d passing, %d delayed)',
-             len(parsed), stopping, len(parsed) - stopping, delayed)
+    early = sum(1 for t in parsed.values() if t['early'])
+    log.info('Poll OK: %d trains (%d stopping, %d passing, %d delayed, %d early)',
+             len(parsed), stopping, len(parsed) - stopping, delayed, early)
     for t in parsed.values():
-        if t['delayed']:
-            log.info('  DELAYED %s %s %s -> %s now %s', t['headcode'], t['type'], t['origin'], t['destination'], t['eta'])
+        if t['eta']:
+            log.info('  %s %s %s %s -> %s sched %s now %s', 'LATE ' if t['delayed'] else 'EARLY',
+                     t['headcode'], t['type'], t['origin'], t['destination'], t['time'], t['eta'])
 
 
 def poll_forever():

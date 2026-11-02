@@ -189,8 +189,26 @@
             color: #e65100;
         }
 
-        .train-delayed {
+        .train-item.early {
+            border-color: #bbdefb;
+            background: #f3f8fe;
+        }
+
+        .train-time-new {
+            font-weight: 700;
             color: #c62828;
+        }
+
+        .train-time-early {
+            font-weight: 700;
+            color: #1565c0;
+        }
+
+        .train-time-old {
+            font-weight: 400;
+            color: #999;
+            text-decoration: line-through;
+            margin-left: 6px;
             font-size: 14px;
         }
 
@@ -293,9 +311,12 @@
         // Configuration
         const API_URL = '/api/trains/realtime';
         const REFRESH_INTERVAL = 30000;
-        const CLOSURE_BEFORE_TRAIN_MINUTES = 2;
-        const CLOSURE_BUFFER_SECONDS = 12;
-        const CLOSURE_GAP_MINUTES = 4;
+        const CLOSURE_BEFORE_TRAIN_MINUTES = 2;   // barriers go down this long before the train
+        const CLOSURE_BUFFER_SECONDS = 12;        // ...and come up this long after it
+        // If the barriers would be up for less than this between two trains, the
+        // signaller keeps them down and we show it as one closure with a "brief
+        // opening" note. Anything longer is a real OPEN period.
+        const MERGE_GAP_SECONDS = 90;
         
         // State
         let currentTrainData = null;
@@ -364,15 +385,22 @@
         function displayTimeline() {
             const now = new Date();
             
+            const toDate = (hhmm) => {
+                if (!hhmm || !hhmm.includes(':')) return null;
+                const [h, m] = hhmm.split(':').map(Number);
+                if (isNaN(h) || isNaN(m)) return null;
+                const d = new Date(now);
+                d.setHours(h, m, 0, 0);
+                if (d < now - 3600000) d.setDate(d.getDate() + 1);
+                return d;
+            };
+
             const trains = (currentTrainData?.trains || []).map(train => {
-                const timeParts = train.time.split(':');
-                const trainTime = new Date();
-                trainTime.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
-                
-                if (trainTime < now - 3600000) {
-                    trainTime.setDate(trainTime.getDate() + 1);
-                }
-                
+                const scheduledTime = toDate(train.time);
+                if (!scheduledTime) return null;
+                // Use the live estimate (early or late) for when the barriers actually close
+                const liveTime = train.eta ? toDate(train.eta) : null;
+                const trainTime = liveTime || scheduledTime;
                 const closureTime = new Date(trainTime.getTime() - CLOSURE_BEFORE_TRAIN_MINUTES * 60000);
                 
                 return {
@@ -380,11 +408,13 @@
                     actualTrainTime: trainTime,
                     closureTime: closureTime,
                     displayTime: train.time.substring(0, 5),
+                    liveDisplayTime: train.eta ? train.eta.substring(0, 5) : null,
                     isPassing: train.type === 'passing',
-                    isDelayed: train.delayed || false,
+                    isDelayed: !!train.delayed,
+                    isEarly: !!train.early,
                     trainId: train.rid || `${train.time}-${train.origin}-${train.destination}`
                 };
-            });
+            }).filter(Boolean);
             
             for (const train of trains) {
                 trainCache.set(train.trainId, train);
@@ -424,10 +454,10 @@
                 const prevTrain = upcomingTrains[i - 1];
                 const currentTrain = upcomingTrains[i];
                 
-                const prevTrainEnd = new Date(prevTrain.actualTrainTime.getTime() + 12000);
-                const gapMinutes = (currentTrain.closureTime - prevTrainEnd) / 1000 / 60;
+                const prevTrainEnd = new Date(prevTrain.actualTrainTime.getTime() + CLOSURE_BUFFER_SECONDS * 1000);
+                const gapSeconds = (currentTrain.closureTime - prevTrainEnd) / 1000;
                 
-                if (gapMinutes <= CLOSURE_GAP_MINUTES) {
+                if (gapSeconds < MERGE_GAP_SECONDS) {
                     currentGroup.push(currentTrain);
                 } else {
                     closureGroups.push(currentGroup);
@@ -565,16 +595,24 @@
         }
 
         function buildTrainItem(train) {
-            const delayedClass = train.isDelayed ? 'delayed' : '';
             const passingIcon = train.isPassing ? '<span class="train-passing">⚡</span>' : '';
-            const delayedText = train.isDelayed ? '<span class="train-delayed">(delayed)</span>' : '';
+            let rowClass = '';
+            let timeHtml;
+            if (train.liveDisplayTime && train.isDelayed) {
+                rowClass = 'delayed';
+                timeHtml = `<span class="train-time-new">${train.liveDisplayTime}</span><span class="train-time-old">${train.displayTime}</span>`;
+            } else if (train.liveDisplayTime && train.isEarly) {
+                rowClass = 'early';
+                timeHtml = `<span class="train-time-early">${train.liveDisplayTime}</span><span class="train-time-old">${train.displayTime}</span>`;
+            } else {
+                timeHtml = `<span class="train-time">${train.displayTime}</span>`;
+            }
             
             return `
-                <div class="train-item ${delayedClass}">
-                    <span class="train-time">${train.displayTime}</span>
+                <div class="train-item ${rowClass}">
+                    ${timeHtml}
                     <span class="train-route">${train.origin} → ${train.destination}</span>
                     ${passingIcon}
-                    ${delayedText}
                 </div>
             `;
         }

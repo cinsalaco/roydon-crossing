@@ -230,9 +230,12 @@
         const STATION_CODE = 'RYN';
         const REFRESH_INTERVAL = 5000; // 5 seconds for real-time updates
         const CROSSING_WARNING_MINUTES = 3;
-        const CLOSURE_GAP_MINUTES = 3;
-        const CLOSURE_BEFORE_TRAIN_MINUTES = 2;
-        const CLOSURE_BUFFER_SECONDS = 12;
+        const CLOSURE_BEFORE_TRAIN_MINUTES = 2;   // barriers go down this long before the train
+        const CLOSURE_BUFFER_SECONDS = 12;        // ...and come up this long after it
+        // If the barriers would be up for less than this between two trains, the
+        // signaller keeps them down and we treat it as one closure with a brief
+        // opening. Anything longer is a real OPEN period.
+        const MERGE_GAP_SECONDS = 90;
         const CACHE_KEY = 'roydon_train_cache';
         const CACHE_VERSION = 2; // Increment to clear old cache format
 
@@ -390,8 +393,9 @@
                     const trainTime = parseTrainTime(train.time, train.eta);
                     if (!trainTime) return null;
                     
-                    const displayTime = train.eta && train.eta !== 'On time' && train.eta.includes(':') 
-                        ? train.eta + ' (delayed)' 
+                    const hasLive = train.eta && train.eta !== 'On time' && train.eta.includes(':');
+                    const displayTime = hasLive
+                        ? train.eta + (train.delayed ? ' (delayed)' : train.early ? ' (early)' : '')
                         : train.time;
                     
                     const closureTime = new Date(trainTime.getTime() - CLOSURE_BEFORE_TRAIN_MINUTES * 60000);
@@ -496,9 +500,9 @@
                 const prevTrain = upcomingTrains[i - 1];
                 const currentTrain = upcomingTrains[i];
                 const prevTrainEnd = new Date(prevTrain.actualTrainTime.getTime() + 12000);
-                const gapMinutes = (currentTrain.closureTime - prevTrainEnd) / 1000 / 60;
+                const gapSeconds = (currentTrain.closureTime - prevTrainEnd) / 1000;
                 
-                if (gapMinutes <= CLOSURE_GAP_MINUTES) {
+                if (gapSeconds < MERGE_GAP_SECONDS) {
                     currentGroup.push(currentTrain);
                 } else {
                     closureGroups.push(currentGroup);
@@ -552,7 +556,7 @@
             
             // CHECK: Are we currently in a brief opening within this closure group?
             // This happens when:
-            // 1. The next closure starts soon (within CLOSURE_GAP_MINUTES)
+            // 1. The next closure starts soon (within MERGE_GAP_SECONDS)
             // 2. AND we have multiple trains in the group (indicating trains have been grouped together)
             // 3. AND the gap is short enough to be a "brief" opening (not a real OPEN period)
             let inBriefOpening = false;
@@ -633,7 +637,7 @@
                     <div class="direction-breakdown">${directionDesc}</div>
                 `;
                 
-            } else if (inBriefOpening && briefOpeningEndsIn > 0 && briefOpeningEndsIn <= CLOSURE_GAP_MINUTES * 60) {
+            } else if (inBriefOpening && briefOpeningEndsIn > 0 && briefOpeningEndsIn <= MERGE_GAP_SECONDS) {
                 // BRIEF OPENING - gate may be open briefly between trains in a group
                 bodyClass = 'closing'; // Amber - warning state
                 lastKnownState = 'closed'; // Treat as closed for state tracking
@@ -715,7 +719,7 @@
                     const gapMinutes = Math.round(gapSeconds / 60);
                     
                     // If there's a gap of 30 seconds or more, it's a potential opening
-                    if (gapSeconds >= 30 && gapMinutes <= CLOSURE_GAP_MINUTES) {
+                    if (gapSeconds >= 30 && gapSeconds < MERGE_GAP_SECONDS) {
                         const openTime = trainEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
                         if (gapSeconds < 90) {
                             shortOpenings.push(`~${openTime} (~${gapSeconds}s)`);
