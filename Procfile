@@ -1,1 +1,1 @@
-web: python darwin_pushport.py
+web: python app.py
