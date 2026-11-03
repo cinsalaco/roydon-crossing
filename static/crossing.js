@@ -112,8 +112,12 @@ window.Crossing = (function () {
    *   kind: 'open' | 'closing' | 'closed' | 'unavailable'
    *   plus the closure it refers to and the seconds to the next change.
    */
-  function stateAt(closures, now, dataAgeSec) {
-    if (dataAgeSec != null && dataAgeSec >= CFG.staleFailSec) {
+  function stateAt(closures, now, dataAgeSec, paused) {
+    // Rate-limit pause: the timetable we hold is still the best available,
+    // so keep predicting from it (the pages show a banner) unless it is
+    // older than the fetch window itself.
+    const tooOld = dataAgeSec != null && dataAgeSec >= CFG.windowMin * 60;
+    if (dataAgeSec != null && dataAgeSec >= CFG.staleFailSec && (!paused || tooOld)) {
       return { kind: 'unavailable', dataAgeSec };
     }
     let current = null, next = null;
@@ -176,6 +180,7 @@ window.Crossing = (function () {
   const loader = {
     lastGood: null,      // Date of last successful fetch (client clock)
     lastServerPoll: null, // Date the server last polled RTT successfully
+    pausedUntil: null,    // Date live updates resume, when RTT has rate-limited us
     trains: [],
     raw: null,
     async fetch() {
@@ -186,6 +191,7 @@ window.Crossing = (function () {
       this.trains = (data.trains || []).map(normaliseTrain).filter(Boolean);
       this.lastGood = new Date();
       this.lastServerPoll = parseIso(data.last_poll);
+      this.pausedUntil = parseIso(data.paused_until);
       return data;
     },
     // Seconds since the data was last known-good, from the server's own poll

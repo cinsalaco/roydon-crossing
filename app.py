@@ -47,8 +47,12 @@ RTT_TOKEN_TYPE = os.environ.get('RTT_TOKEN_TYPE', 'access').lower()
 RTT_LOCATION = os.environ.get('RTT_LOCATION', 'RYN')
 RTT_API_VERSION = os.environ.get('RTT_API_VERSION')  # optional pin
 
-POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 60))
-WINDOW_MINUTES = int(os.environ.get('WINDOW_MINUTES', 120))
+# Rate budget. RTT hobbyist limits are 10/min, 100/hour, 1000/day, 10000/week.
+# The weekly cap works out at ~1430/day, so we aim well under the daily one.
+POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 96))        # target: ~900 polls/day
+POLL_INTERVAL_MIN = int(os.environ.get('POLL_INTERVAL_MIN', 90))
+DAILY_BUDGET = int(os.environ.get('DAILY_BUDGET', 900))          # polls we allow ourselves per day
+WINDOW_MINUTES = int(os.environ.get('WINDOW_MINUTES', 180))     # fetch 3 h so cached data lasts through a pause
 API_PORT = int(os.environ.get('PORT', 5002))
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
 OBS_FILE = os.path.join(DATA_DIR, 'observations.json')
@@ -81,6 +85,7 @@ last_poll_error = None
 last_raw_response = None     # kept for /api/raw diagnostics
 api_info = None              # /api/info response (version + entitlements)
 rate_limit = {}              # last seen X-RateLimit-* headers
+rate_limited_until = None    # datetime when RTT will accept calls again (after a 429)
 
 # --------------------------------------------------------------------------
 # Token handling
@@ -122,7 +127,7 @@ def get_access_token():
 
     with _token_lock:
         now = datetime.now(timezone.utc)
-        if _access_token and _access_token_expires and now < _access_token_expires - timedelta(minutes=5):
+        if _access_token and _access_token_expires and now < _access_token_expires - timedelta(minutes=2):
             return _access_token
         log.info('Exchanging refresh token for an access token')
         _access_token, _access_token_expires = _exchange_refresh_token()
@@ -358,8 +363,11 @@ def poll_once():
     rate_limit = {k: v for k, v in resp.headers.items() if k.lower().startswith('x-ratelimit')}
 
     if resp.status_code == 429:
+        global rate_limited_until
         retry = int(resp.headers.get('Retry-After', POLL_INTERVAL))
+        rate_limited_until = datetime.now(LONDON) + timedelta(seconds=retry)
         raise RuntimeError(f'Rate limited by RTT, retry after {retry}s')
+    rate_limited_until = None
     if resp.status_code == 204:
         payload = {'services': []}
     else:
@@ -375,6 +383,8 @@ def poll_once():
         last_poll_at = datetime.now(LONDON)
         last_poll_error = None
 
+    if api_info is None:
+        fetch_api_info()
     stopping = sum(1 for t in parsed.values() if t['type'] == 'stopping')
     delayed = sum(1 for t in parsed.values() if t['delayed'])
     early = sum(1 for t in parsed.values() if t['early'])
@@ -386,23 +396,45 @@ def poll_once():
                      t['headcode'], t['type'], t['origin'], t['destination'], t['time'], t['eta'])
 
 
+def next_interval():
+    """
+    Seconds until the next poll. Spreads what RTT says we have left over the
+    rest of the day so we never run dry mid-afternoon, never faster than
+    POLL_INTERVAL_MIN, and never slower than needed.
+    """
+    try:
+        remaining_day = int(rate_limit.get('x-ratelimit-remaining-day', DAILY_BUDGET))
+        remaining_hour = int(rate_limit.get('x-ratelimit-remaining-hour', 100))
+    except ValueError:
+        return POLL_INTERVAL
+    now = datetime.now(LONDON)
+    secs_left_today = max(60, (now.replace(hour=23, minute=59, second=59) - now).total_seconds())
+    # keep a reserve of 40 calls for restarts / token refreshes
+    usable = max(1, remaining_day - 40)
+    paced = secs_left_today / usable
+    # also respect the hourly cap with a small reserve
+    secs_left_hour = max(60, 3600 - (now.minute * 60 + now.second))
+    paced_hour = secs_left_hour / max(1, remaining_hour - 5)
+    return int(max(POLL_INTERVAL_MIN, POLL_INTERVAL, paced, paced_hour))
+
+
 def poll_forever():
     global feed_ok, last_poll_error
-    fetch_api_info()
     while True:
         wait = POLL_INTERVAL
         try:
             poll_once()
+            wait = next_interval()
         except Exception as exc:
             with state_lock:
                 feed_ok = False
                 last_poll_error = str(exc)
             log.error('Poll failed: %s', exc)
-            if 'Rate limited' in str(exc):
-                try:
-                    wait = max(wait, int(str(exc).rsplit(' ', 1)[-1].rstrip('s')))
-                except ValueError:
-                    pass
+            if rate_limited_until:
+                wait = max(60, int((rate_limited_until - datetime.now(LONDON)).total_seconds()) + 5)
+                log.warning('Paused until %s; serving the last timetable meanwhile', rate_limited_until.strftime('%H:%M'))
+            else:
+                wait = max(POLL_INTERVAL, 120)
         time.sleep(wait)
 
 
@@ -531,6 +563,7 @@ def get_realtime_trains():
             'darwin_connected': feed_ok,        # kept for older front-end builds
             'last_poll': last_poll_at.isoformat() if last_poll_at else None,
             'data_age_sec': int((now - last_poll_at).total_seconds()) if last_poll_at else None,
+            'paused_until': rate_limited_until.isoformat() if rate_limited_until else None,
             'last_error': last_poll_error,
         })
 
@@ -562,6 +595,8 @@ def status():
             'location': RTT_LOCATION,
             'connected': feed_ok,
             'poll_interval_s': POLL_INTERVAL,
+            'next_interval_s': next_interval(),
+            'paused_until': rate_limited_until.isoformat() if rate_limited_until else None,
             'window_minutes': WINDOW_MINUTES,
             'last_poll': last_poll_at.isoformat() if last_poll_at else None,
             'last_error': last_poll_error,
