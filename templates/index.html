@@ -59,8 +59,7 @@
   .header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; font-weight: 500; }
   .header .updated { white-space: nowrap; }
   .header .updated.warn { font-weight: 600; }
-  .paused { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: rgba(0,0,0,0.22); font-size: 14px; line-height: 1.4; font-weight: 500; }
-  body.state-closing .paused { background: rgba(0,0,0,0.12); }
+  .header .updated { text-align: right; }
 
   .state { margin-top: clamp(24px, 5vh, 44px); }
   .state-word { font-size: clamp(52px, 19vw, 76px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
@@ -115,8 +114,6 @@
     <span>Roydon level crossing</span>
     <span class="updated" id="updated">Loading…</span>
   </div>
-
-  <div class="paused hidden" id="paused"></div>
 
   <div class="state">
     <h1 class="state-word" id="stateWord">Loading</h1>
@@ -218,13 +215,6 @@
     const paused = C.loader.pausedUntil && C.loader.pausedUntil > now;
     const state = C.stateAt(closures, now, age, paused);
 
-    const pb = $('paused');
-    if (paused && state.kind !== 'unavailable') {
-      pb.textContent = `Live updates paused until ${C.hhmm(C.loader.pausedUntil)} (data allowance used up). Showing the timetable from ${C.hhmm(C.loader.lastServerPoll)}; delays since then won't show.`;
-      pb.classList.remove('hidden');
-    } else {
-      pb.classList.add('hidden');
-    }
 
     document.body.className = 'state-' + state.kind;
     $('themeColor').setAttribute('content', THEME[state.kind]);
@@ -232,8 +222,13 @@
     // header
     const upd = $('updated');
     if (C.loader.lastServerPoll) {
-      upd.textContent = (age >= C.CFG.staleWarnSec && !paused ? 'Updating… last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
-      upd.classList.toggle('warn', age >= C.CFG.staleWarnSec && !paused);
+      if (paused) {
+        upd.textContent = `Timetable from ${C.hhmm(C.loader.lastServerPoll)}, live updates resume ${C.hhmm(C.loader.pausedUntil)}`;
+        upd.classList.add('warn');
+      } else {
+        upd.textContent = (age >= C.CFG.staleWarnSec ? 'Updating… last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
+        upd.classList.toggle('warn', age >= C.CFG.staleWarnSec);
+      }
     }
 
     const word = $('stateWord'), line = $('stateLine');

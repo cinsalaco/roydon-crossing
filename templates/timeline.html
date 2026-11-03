@@ -63,7 +63,6 @@
   .train .tag.early { color: var(--blue); opacity: 1; font-weight: 600; }
   .train.gone { opacity: 0.55; }
   .lift-note { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 6px 0; border-radius: 6px; background: rgba(224,138,0,0.2); color: #5a3a00; font-size: 13px; font-weight: 600; }
-  .paused { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: rgba(224,138,0,0.2); color: #5a3a00; font-size: 14px; line-height: 1.4; font-weight: 500; }
   .empty, .footer { font-size: 13px; opacity: 0.75; line-height: 1.4; margin-top: 24px; }
   .empty { font-size: 16px; opacity: 0.8; }
 </style>
@@ -82,7 +81,6 @@
     <div class="strip-axis" id="stripAxis"></div>
   </section>
 
-  <div class="paused" id="paused" style="display:none"></div>
   <section class="timeline" id="timeline"></section>
 
   <div class="footer">Estimated from live train data: the barrier goes down about 2 minutes before each train and lifts just after it. Always follow the lights and barrier at the crossing.</div>
@@ -143,12 +141,10 @@
     const upd = $('updated');
     if (C.loader.lastServerPoll) {
       const stale = age >= C.CFG.staleWarnSec && !paused;
-      upd.textContent = (stale ? 'Last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
-      upd.classList.toggle('warn', stale);
+      upd.textContent = paused ? `Timetable from ${C.hhmm(C.loader.lastServerPoll)}` : (stale ? 'Last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
+      upd.classList.toggle('warn', stale || !!paused);
     }
     const paused = C.loader.pausedUntil && C.loader.pausedUntil > now;
-    const pb = $('paused');
-    if (paused) { pb.textContent = `Live updates paused until ${C.hhmm(C.loader.pausedUntil)} (data allowance used up). Showing the timetable from ${C.hhmm(C.loader.lastServerPoll)}; delays since then won't show.`; pb.style.display = ''; } else { pb.style.display = 'none'; }
     const closures = C.buildClosures(C.loader.trains);
     const periods = C.buildPeriods(closures, now);
 

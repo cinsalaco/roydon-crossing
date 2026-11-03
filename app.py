@@ -56,6 +56,7 @@ WINDOW_MINUTES = int(os.environ.get('WINDOW_MINUTES', 180))     # fetch 3 h so c
 API_PORT = int(os.environ.get('PORT', 5002))
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
 OBS_FILE = os.path.join(DATA_DIR, 'observations.json')
+CACHE_FILE = os.path.join(DATA_DIR, 'last_timetable.json')
 
 SERVE_WINDOW_MINUTES = 90       # what /api/trains/realtime returns
 SERVE_PAST_MINUTES = 5          # keep very recent trains so the UI can finish a closure
@@ -382,6 +383,7 @@ def poll_once():
         feed_ok = True
         last_poll_at = datetime.now(LONDON)
         last_poll_error = None
+    save_cache(parsed, last_poll_at)
 
     if api_info is None:
         fetch_api_info()
@@ -394,6 +396,41 @@ def poll_once():
         if t['eta']:
             log.info('  %s %s %s %s -> %s sched %s now %s', 'LATE ' if t['delayed'] else 'EARLY',
                      t['headcode'], t['type'], t['origin'], t['destination'], t['time'], t['eta'])
+
+
+def save_cache(parsed, polled_at):
+    """Persist the last good timetable so a restart during a rate-limit pause still has data."""
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        tmp = CACHE_FILE + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump({'polled_at': polled_at.isoformat(), 'trains': parsed}, f)
+        os.replace(tmp, CACHE_FILE)
+    except OSError as exc:
+        log.warning('Could not save timetable cache: %s', exc)
+
+
+def load_cache():
+    """Restore the last saved timetable at startup. Returns True if anything was loaded."""
+    global trains_cache, last_poll_at, feed_ok
+    try:
+        with open(CACHE_FILE) as f:
+            data = json.load(f)
+        polled = parse_iso(data.get('polled_at'))
+        trains = data.get('trains') or {}
+        if not polled or not trains:
+            return False
+        # drop trains that are already in the past
+        cutoff = datetime.now(LONDON) - timedelta(minutes=SERVE_PAST_MINUTES)
+        trains = {rid: t for rid, t in trains.items() if parse_iso(t.get('parsed_time')) and parse_iso(t['parsed_time']) > cutoff}
+        with state_lock:
+            trains_cache = trains
+            last_poll_at = polled
+            feed_ok = False      # it is cached, not live, until the first poll succeeds
+        log.info('Restored %d trains from cache (polled %s)', len(trains), polled.strftime('%H:%M'))
+        return True
+    except (OSError, ValueError):
+        return False
 
 
 def next_interval():
@@ -640,6 +677,7 @@ def raw():
 # --------------------------------------------------------------------------
 
 def start_poller():
+    load_cache()
     if not RTT_TOKEN:
         log.error('RTT_TOKEN is not set - no train data will be loaded')
         return
