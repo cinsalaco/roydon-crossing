@@ -61,35 +61,48 @@
   .header .updated.warn { font-weight: 600; }
   .header .updated { text-align: right; }
 
-  .state { margin-top: clamp(24px, 5vh, 44px); }
-  .state-word { font-size: clamp(52px, 19vw, 76px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-  .state-line { font-size: clamp(18px, 5.6vw, 22px); font-weight: 500; line-height: 1.3; margin-top: 10px; }
+  .state { margin-top: clamp(18px, 4vh, 28px); padding: 16px 18px; border-radius: 12px; background: rgba(255,255,255,0.16); border: 1.5px solid rgba(255,255,255,0.35); }
+  body.state-closed .state, body.state-unavailable .state { background: rgba(0,0,0,0.22); }
+  body.state-closing .state { background: rgba(0,0,0,0.10); border-color: rgba(0,0,0,0.3); }
+  .state-word { font-size: clamp(40px, 14vw, 56px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .state-line { font-size: clamp(16px, 4.6vw, 18px); font-weight: 500; line-height: 1.3; margin-top: 8px; }
 
-  .count { margin-top: clamp(20px, 4vh, 32px); }
+  .count { margin-top: clamp(20px, 4vh, 30px); }
   .count-label { font-size: 18px; font-weight: 500; opacity: 0.85; }
+  .count-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
   .count-value { font-size: clamp(76px, 29vw, 116px); font-weight: 700; font-stretch: 75%; line-height: 0.92; letter-spacing: -0.03em; margin-top: 4px; }
-  .count-detail { font-size: 18px; font-weight: 500; opacity: 0.85; margin-top: 10px; line-height: 1.35; }
+  .count-detail { font-size: 18px; font-weight: 600; opacity: 0.9; line-height: 1.25; }
+  .count-detail small { display: block; font-size: 18px; font-weight: 500; opacity: 0.8; }
 
   .strip-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 28px; padding: 14px 16px 12px; border-radius: 12px; background: var(--panel); color: var(--ink); }
   .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; }
   .legend { display: inline-flex; align-items: center; gap: 12px; font-weight: 500; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-  .strip { display: flex; height: 14px; border-radius: 3px; overflow: hidden; gap: 2px; }
+  .strip-wrap { position: relative; height: 16px; margin-top: 18px; }
+  .strip { display: flex; height: 16px; border-radius: 3px; overflow: hidden; gap: 2px; }
   .strip div { min-width: 2px; }
   .strip .open { background: var(--green); }
   .strip .closed { background: var(--red); }
-  .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.65; }
-  .strip-next { font-size: 14px; font-weight: 500; margin-top: 2px; }
+  .strip .closed.now { background: #7A1211; }
+  .strip-now { position: absolute; left: 0; top: -3px; width: 3px; height: 22px; background: var(--ink); border-radius: 1px; }
+  .strip-next { position: absolute; top: -16px; transform: translateX(-50%); font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .strip-next::after { content: ''; position: absolute; left: 50%; top: 13px; transform: translateX(-50%); border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid currentColor; }
+  .strip-next.closed { color: var(--red); } .strip-next.open { color: var(--green); }
+  .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.65; margin-top: 4px; }
+  .strip-axis span:first-child { font-weight: 700; opacity: 1; }
+  .strip-sentence { font-size: 14px; font-weight: 500; margin-top: 4px; }
 
   .trains { margin-top: 22px; }
-  .trains h2 { font-size: 13px; font-weight: 500; opacity: 0.8; padding-bottom: 4px; }
+  .trains h2 { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; opacity: 0.8; padding-bottom: 4px; }
   .train { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 15px; }
   .train:last-child { border-bottom: 1px solid var(--rule); }
   .train.gone { opacity: 0.6; }
-  .train .t { font-weight: 700; min-width: 46px; }
-  .train .t s { font-weight: 600; font-size: 12px; margin-left: 6px; padding: 1px 6px; border-radius: 4px; color: #fff; background: var(--red); box-shadow: 0 0 0 1px rgba(255,255,255,0.45); }
-  .train .t s.early { background: var(--blue, #1565c0); }
+  .train .t { font-weight: 700; min-width: 46px; white-space: nowrap; }
+  .train .t .delta { font-size: 12px; font-weight: 700; margin-left: 4px; padding: 1px 5px; border-radius: 4px; color: #fff; background: var(--red); }
+  .train .t .delta.early { background: var(--blue, #1565c0); }
+  body.state-closed .train .t .delta { background: #fff; color: var(--red); }
+  body.state-closed .train .t .delta.early { background: #fff; color: var(--blue, #1565c0); }
   .train .tag.late { font-weight: 700; }
   .train .route { flex: 1; }
   .train .tag { font-size: 13px; opacity: 0.85; white-space: nowrap; }
@@ -122,8 +135,10 @@
 
   <div class="count" id="count">
     <div class="count-label" id="countLabel"></div>
-    <div class="count-value" id="countValue"></div>
-    <div class="count-detail" id="countDetail"></div>
+    <div class="count-row">
+      <div class="count-value" id="countValue"></div>
+      <div class="count-detail" id="countDetail"></div>
+    </div>
   </div>
 
   <button type="button" class="retry hidden" id="retry">Try again now</button>
@@ -133,13 +148,17 @@
       <span>Next 90 minutes</span>
       <span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span></span>
     </div>
-    <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+    <div class="strip-wrap">
+      <div class="strip-next hidden" id="stripMarker"></div>
+      <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+      <div class="strip-now" aria-hidden="true"></div>
+    </div>
     <div class="strip-axis" id="stripAxis"></div>
-    <div class="strip-next" id="stripNext"></div>
+    <div class="strip-sentence" id="stripNext"></div>
   </section>
 
   <section class="trains" id="trains">
-    <h2 id="trainsHeading">Trains in the next closure</h2>
+    <h2><span id="trainsHeading">Trains in the next closure</span><span id="trainsCount"></span></h2>
     <div id="trainList"></div>
   </section>
 
@@ -164,12 +183,10 @@
   function trainRow(tr, now) {
     const gone = tr.openAt <= now;
     let time = C.hhmm(tr.at);
-    if (tr.late) time += `<s>${C.hhmm(tr.schedAt)}</s>`;
-    else if (tr.early) time += `<s class="early">${C.hhmm(tr.schedAt)}</s>`;
+    if (tr.late) time += `<span class="delta">▲${tr.late}</span>`;
+    else if (tr.early) time += `<span class="delta early">▼${tr.early}</span>`;
     let tag = tr.stops ? 'stops here' : 'passes through';
     if (gone) tag = 'gone';
-    else if (tr.late) tag = `<span class="late">${tr.late} min late</span>`;
-    else if (tr.early) tag = `${tr.early} min early`;
     return `<div class="train${gone ? ' gone' : ''}"><span class="t">${time}</span><span class="route">${tr.origin} to ${tr.destination}${tr.freight ? ' (freight)' : ''}</span><span class="tag">${tag}</span></div>`;
   }
 
@@ -187,11 +204,25 @@
       if (lift) html += liftNote(lift);
     });
     $('trainList').innerHTML = html;
+    const gone = closure.trains.filter(t => t.openAt <= now).length;
+    const n = closure.trains.length;
+    $('trainsCount').textContent = gone ? `${gone} of ${n} gone` : `${n} train${n === 1 ? '' : 's'}`;
   }
 
   function renderStrip(periods, closures, now, state) {
     const total = periods.reduce((s, p) => s + p.seconds, 0) || 1;
-    $('strip').innerHTML = periods.map(p => `<div class="${p.kind}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
+    $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
+    // marker for the next change of state
+    const m = $('stripMarker');
+    if (periods.length > 1) {
+      const nextP = periods[1];
+      const pct = Math.min(97, Math.max(3, 100 * (nextP.start - now) / (C.CFG.windowMin * 60000)));
+      m.textContent = C.hhmm(nextP.start);
+      m.className = 'strip-next ' + nextP.kind;
+      m.style.left = pct + '%';
+    } else {
+      m.classList.add('hidden');
+    }
     const axis = ['now'];
     for (let m = 30; m <= 90; m += 30) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
@@ -241,7 +272,7 @@
       word.textContent = 'Status unavailable';
       line.textContent = `Train data hasn't updated for ${C.minutesWord(state.dataAgeSec)}. Crossing status can't be predicted.`;
       label.textContent = ''; value.textContent = '';
-      detail.textContent = 'Use the lights and barrier at the crossing. This page will update by itself when the data comes back.';
+      detail.innerHTML = '<small>Use the lights and barrier at the crossing. This page will update by itself when the data comes back.</small>';
       $('retry').classList.remove('hidden');
       $('stripPanel').classList.add('hidden');
       $('trains').classList.add('hidden');
@@ -262,23 +293,21 @@
       }
       label.textContent = 'Expected to open in';
       value.textContent = C.countdown(state.secondsToChange);
-      let d = `at about ${C.hhmm(c.openAt)}`;
-      if (state.nextAfter) d += `, then open for ${C.minutesWord((state.nextAfter.closeAt - c.openAt) / 1000)}`;
-      detail.textContent = d;
+      detail.innerHTML = `at ${C.hhmm(c.openAt)}` + (state.nextAfter ? `<small>then open ${Math.max(1, Math.round((state.nextAfter.closeAt - c.openAt) / 60000))} min</small>` : '');
       $('trainsHeading').textContent = 'Trains in this closure';
     } else if (state.kind === 'closing') {
       word.textContent = 'Closing';
       line.textContent = 'Expected to close within a minute.';
       label.textContent = 'Expected to close in';
       value.textContent = C.countdown(state.secondsToChange);
-      detail.textContent = `for ${C.aboutMinutes(c.durationSec)}, until ${C.hhmm(c.openAt)}`;
+      detail.innerHTML = `until ${C.hhmm(c.openAt)}<small>for ${Math.max(1, Math.round(c.durationSec / 60))} min</small>`;
       $('trainsHeading').textContent = 'Trains in this closure';
     } else if (c) {
       word.textContent = 'Open';
       line.textContent = `No closure expected for another ${C.minutesWord(state.secondsToChange)}.`;
       label.textContent = 'Expected to close in';
       value.textContent = C.countdown(state.secondsToChange);
-      detail.textContent = `at about ${C.hhmm(c.closeAt)}, for ${C.minutesWord(c.durationSec)}`;
+      detail.innerHTML = `at ${C.hhmm(c.closeAt)}<small>for ${Math.max(1, Math.round(c.durationSec / 60))} min</small>`;
       $('trainsHeading').textContent = 'Trains in the next closure';
     } else {
       word.textContent = 'Open';

@@ -32,6 +32,8 @@
   .strip div { min-width: 2px; }
   .strip .open { background: var(--green); }
   .strip .closed { background: var(--red); }
+  .strip .closed.now { background: #7A1211; }
+  .period.closed.now .dot, .period.closed.now .line, .period.closed.now .seg { background: #7A1211; }
   .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.6; }
 
   .timeline { display: flex; flex-direction: column; margin-top: 28px; }
@@ -54,7 +56,8 @@
   .train:first-of-type { margin-top: 4px; padding-top: 10px; }
   .train:last-child { border-bottom: 0; }
   .train .t { width: 44px; flex-shrink: 0; display: inline-flex; flex-direction: column; line-height: 1.1; font-weight: 700; }
-  .train .t s { font-weight: 500; font-size: 12px; opacity: 0.85; }
+  .train .t .delta { font-size: 12px; font-weight: 700; margin-left: 4px; padding: 1px 5px; border-radius: 4px; color: #fff; background: var(--red); }
+  .train .t .delta.early { background: var(--blue); }
   .train .t.late { color: var(--red); }
   .train .t.early { color: var(--blue); }
   .train .route { flex: 1; min-width: 0; }
@@ -96,13 +99,14 @@
     const gone = tr.openAt <= now;
     const cls = tr.late ? 'late' : tr.early ? 'early' : '';
     let time = C.hhmm(tr.at);
-    if (cls) time += `<s>${C.hhmm(tr.schedAt)}</s>`;
+    if (tr.late) time += `<span class="delta">▲${tr.late}</span>`;
+    else if (tr.early) time += `<span class="delta early">▼${tr.early}</span>`;
     let tag = tr.stops ? 'stops here' : 'passes through';
     if (tr.freight) tag = 'freight';
     if (gone) tag = 'gone';
     else if (tr.late) tag = `${tr.late} min late`;
     else if (tr.early) tag = `${tr.early} min early`;
-    return `<div class="train${gone ? ' gone' : ''}"><span class="t ${cls}">${time}</span><span class="route">${tr.origin} to ${tr.destination}</span><span class="tag ${cls}">${tag}</span></div>`;
+    return `<div class="train${gone ? ' gone' : ''}"><span class="t">${time}</span><span class="route">${tr.origin} to ${tr.destination}</span><span class="tag ${cls}">${tag}</span></div>`;
   }
 
   function liftNote(l) {
@@ -132,7 +136,7 @@
     } else {
       rail += `<div class="line"></div>`;
     }
-    return `<div class="period ${p.kind}"><div class="when"><div class="t">${when}</div><div class="d">${dur}</div></div><div class="rail">${rail}</div><div class="body">${body}</div></div>`;
+    return `<div class="period ${p.kind}${isFirst && p.kind === 'closed' ? ' now' : ''}"><div class="when"><div class="t">${when}</div><div class="d">${dur}</div></div><div class="rail">${rail}</div><div class="body">${body}</div></div>`;
   }
 
   function render() {
@@ -148,7 +152,7 @@
     const closures = C.buildClosures(C.loader.trains);
     const periods = C.buildPeriods(closures, now);
 
-    $('strip').innerHTML = periods.map(p => `<div class="${p.kind}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
+    $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
     const axis = ['now'];
     for (let m = 30; m <= 90; m += 30) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
