@@ -138,13 +138,13 @@
   function render() {
     const now = new Date();
     const age = C.loader.dataAgeSec(now);
+    const paused = C.loader.pausedUntil && C.loader.pausedUntil > now;
     const upd = $('updated');
     if (C.loader.lastServerPoll) {
       const stale = age >= C.CFG.staleWarnSec && !paused;
       upd.textContent = paused ? `Timetable from ${C.hhmm(C.loader.lastServerPoll)}` : (stale ? 'Last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
       upd.classList.toggle('warn', stale || !!paused);
     }
-    const paused = C.loader.pausedUntil && C.loader.pausedUntil > now;
     const closures = C.buildClosures(C.loader.trains);
     const periods = C.buildPeriods(closures, now);
 
