@@ -183,8 +183,8 @@
   function trainRow(tr, now) {
     const gone = tr.openAt <= now;
     let time = C.hhmm(tr.at);
-    if (tr.late) time += `<span class="delta">▲${tr.late}</span>`;
-    else if (tr.early) time += `<span class="delta early">▼${tr.early}</span>`;
+    if (tr.late) time += `<span class="delta">${tr.late} min late</span>`;
+    else if (tr.early) time += `<span class="delta early">${tr.early} min early</span>`;
     let tag = tr.stops ? 'stops here' : 'passes through';
     if (gone) tag = 'gone';
     return `<div class="train${gone ? ' gone' : ''}"><span class="t">${time}</span><span class="route">${tr.origin} to ${tr.destination}${tr.freight ? ' (freight)' : ''}</span><span class="tag">${tag}</span></div>`;

@@ -99,8 +99,8 @@
     const gone = tr.openAt <= now;
     const cls = tr.late ? 'late' : tr.early ? 'early' : '';
     let time = C.hhmm(tr.at);
-    if (tr.late) time += `<span class="delta">▲${tr.late}</span>`;
-    else if (tr.early) time += `<span class="delta early">▼${tr.early}</span>`;
+    if (tr.late) time += `<span class="delta">${tr.late} min late</span>`;
+    else if (tr.early) time += `<span class="delta early">${tr.early} min early</span>`;
     let tag = tr.stops ? 'stops here' : 'passes through';
     if (tr.freight) tag = 'freight';
     if (gone) tag = 'gone';
