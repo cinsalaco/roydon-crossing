@@ -663,6 +663,22 @@ def reconcile_observations(force=False):
     return {'checked': len(pending), 'updated': updated}
 
 
+def dump_observations_to_log():
+    """Print every observation as one compact JSON line so it can be read from the deploy logs."""
+    with obs_lock:
+        all_obs = _load_observations()
+    log.info('OBSDUMP count=%d', len(all_obs))
+    for o in all_obs:
+        s = o.get('snapshot') or {}
+        a = o.get('actual') or {}
+        log.info('OBSDUMP %s', json.dumps({
+            'id': o.get('id'), 'ev': o.get('event'), 'at': o.get('at'), 'note': o.get('note'),
+            'state': s.get('state'), 'pc': s.get('predicted_close'), 'po': s.get('predicted_open'),
+            'train': s.get('nearest_train'), 'fc': s.get('nearest_train_at'),
+            'act': a.get('train_at'), 'sched': a.get('train_scheduled'), 'arr': a.get('arrival_at'),
+        }, separators=(',', ':')))
+
+
 def reconcile_forever():
     # reconcile once shortly after startup (RECONCILE_ON_START=1), then nightly
     if os.environ.get('RECONCILE_ON_START') == '1':
