@@ -559,6 +559,155 @@ def delete_observation(obs_id):
     return jsonify({'deleted': len(all_obs) - len(kept)})
 
 
+# --------------------------------------------------------------------------
+# Reconciliation: once a train has passed, RTT records the actual time at
+# Roydon. Fetch it for every logged train so the review compares taps with
+# what really happened, not with the forecast the phone had at the time.
+# Runs nightly and on demand (POST /api/observations/reconcile). One API
+# call per distinct train, so a day of logging costs a handful of calls.
+# --------------------------------------------------------------------------
+
+RECONCILE_HOUR = 2   # local time
+
+
+def fetch_actual_at_roydon(rid):
+    """Return (actual_dt, scheduled_dt, kind) for this service at Roydon, or None if not yet recorded."""
+    resp = requests.get(f'{RTT_BASE_URL}/gb-nr/service',
+                        headers=_base_headers(get_access_token()),
+                        params={'uniqueIdentity': rid, 'detailed': 'true'}, timeout=30)
+    if resp.status_code == 401 and handle_unauthorized():
+        resp = requests.get(f'{RTT_BASE_URL}/gb-nr/service',
+                            headers=_base_headers(get_access_token()),
+                            params={'uniqueIdentity': rid, 'detailed': 'true'}, timeout=30)
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    svc = (resp.json() or {}).get('service') or {}
+    for loc in svc.get('locations') or []:
+        codes = ((loc.get('location') or {}).get('shortCodes') or []) + ((loc.get('location') or {}).get('longCodes') or [])
+        if RTT_LOCATION not in codes and 'ROYDON' not in codes:
+            continue
+        td = loc.get('temporalData') or {}
+        display = td.get('displayAs') or 'PASS'
+        stopping = display in STOPPING_DISPLAY
+        activity = (td.get('departure') or td.get('arrival')) if stopping else (td.get('pass') or td.get('departure') or td.get('arrival'))
+        if not activity:
+            return None
+        actual = parse_iso(activity.get('realtimeActual'))
+        scheduled = parse_iso(activity.get('scheduleAdvertised')) or parse_iso(activity.get('scheduleInternal'))
+        arr_actual = parse_iso(((td.get('arrival') or {}).get('realtimeActual'))) if stopping else None
+        return {
+            'actual': actual, 'scheduled': scheduled, 'arrival_actual': arr_actual,
+            'kind': 'stopping' if stopping else 'passing',
+        }
+    return None
+
+
+def _obs_rid(o):
+    """The RTT uniqueIdentity of the train an observation matched. Older
+    observations only stored a text label like '2H19 08:52 Cambridge North>London passes'
+    so for those, find the headcode in the cache or look it up by headcode + date."""
+    snap = o.get('snapshot') or {}
+    if snap.get('nearest_train_rid'):
+        return snap['nearest_train_rid']
+    label = snap.get('nearest_train') or ''
+    headcode = label.split(' ')[0] if label else ''
+    if not headcode or len(headcode) != 4:
+        return None
+    day = parse_iso(o.get('at'))
+    if not day:
+        return None
+    # search the live cache first (cheap)
+    with state_lock:
+        for t in trains_cache.values():
+            if t.get('headcode') == headcode and t.get('rid', '').endswith(day.strftime('%Y-%m-%d')):
+                return t['rid']
+    # otherwise ask RTT by headcode and date (one call, cached per run)
+    key = (headcode, day.strftime('%Y-%m-%d'))
+    if key in _rid_lookup_cache:
+        return _rid_lookup_cache[key]
+    try:
+        resp = requests.get(f'{RTT_BASE_URL}/gb-nr/service',
+                            headers=_base_headers(get_access_token()),
+                            params={'identity': headcode, 'departureDate': key[1], 'detailed': 'true'}, timeout=30)
+        rid = None
+        if resp.status_code == 200:
+            rid = (((resp.json() or {}).get('service') or {}).get('scheduleMetadata') or {}).get('uniqueIdentity')
+        _rid_lookup_cache[key] = rid
+        time.sleep(1.5)
+        return rid
+    except Exception as exc:
+        log.warning('Headcode lookup %s %s failed: %s', headcode, key[1], exc)
+        return None
+
+
+_rid_lookup_cache = {}
+
+
+def reconcile_observations(force=False):
+    """Attach RTT's recorded actual times to observations that lack them."""
+    with obs_lock:
+        all_obs = _load_observations()
+    pending = [o for o in all_obs
+               if _obs_rid(o)
+               and (force or not o.get('actual'))
+               and parse_iso(o.get('at')) and parse_iso(o['at']) < datetime.now(LONDON) - timedelta(minutes=20)]
+    rids = sorted({_obs_rid(o) for o in pending})
+    if not rids:
+        return {'checked': 0, 'updated': 0}
+    log.info('Reconciling %d observations across %d trains', len(pending), len(rids))
+    found = {}
+    for rid in rids:
+        try:
+            found[rid] = fetch_actual_at_roydon(rid)
+        except Exception as exc:
+            log.warning('Reconcile %s failed: %s', rid, exc)
+        time.sleep(1.5)   # stay well under 10/min
+    updated = 0
+    with obs_lock:
+        all_obs = _load_observations()
+        for o in all_obs:
+            rid = _obs_rid(o)
+            res = found.get(rid)
+            if not rid or not res or not res.get('actual'):
+                continue
+            if o.get('actual') and not force:
+                continue
+            o['actual'] = {
+                'train_at': res['actual'].isoformat(),
+                'train_scheduled': res['scheduled'].isoformat() if res['scheduled'] else None,
+                'arrival_at': res['arrival_actual'].isoformat() if res.get('arrival_actual') else None,
+                'kind': res['kind'],
+                'reconciled': datetime.now(LONDON).isoformat(),
+            }
+            updated += 1
+        _save_observations(all_obs)
+    log.info('Reconciled: %d observations updated', updated)
+    return {'checked': len(rids), 'updated': updated}
+
+
+def reconcile_forever():
+    while True:
+        now = datetime.now(LONDON)
+        nxt = now.replace(hour=RECONCILE_HOUR, minute=15, second=0, microsecond=0)
+        if nxt <= now:
+            nxt += timedelta(days=1)
+        time.sleep(max(60, (nxt - now).total_seconds()))
+        try:
+            reconcile_observations()
+        except Exception as exc:
+            log.error('Nightly reconcile failed: %s', exc)
+
+
+@app.route('/api/observations/reconcile', methods=['POST'])
+def reconcile_now():
+    force = (request.get_json(silent=True) or {}).get('force', False)
+    try:
+        return jsonify(reconcile_observations(force=bool(force)))
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
 @app.route('/api/observations.csv', methods=['GET'])
 def observations_csv():
     with obs_lock:
@@ -566,12 +715,15 @@ def observations_csv():
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(['at', 'event', 'note', 'app_state', 'predicted_close', 'predicted_open',
-                'nearest_train', 'nearest_train_at', 'closure_trains', 'data_age_sec', 'lead', 'trail', 'merge'])
+                'nearest_train', 'nearest_train_at', 'actual_train_at', 'actual_train_scheduled',
+                'closure_trains', 'data_age_sec', 'lead', 'trail', 'merge'])
     for o in all_obs:
         s = o.get('snapshot') or {}
+        a = o.get('actual') or {}
         cfg = s.get('cfg') or {}
         w.writerow([o.get('at'), o.get('event'), o.get('note'), s.get('state'), s.get('predicted_close'),
                     s.get('predicted_open'), s.get('nearest_train'), s.get('nearest_train_at'),
+                    a.get('train_at'), a.get('train_scheduled'),
                     s.get('closure_trains'), s.get('data_age_sec'), cfg.get('lead'), cfg.get('trail'), cfg.get('merge')])
     return Response(out.getvalue(), mimetype='text/csv',
                     headers={'Content-Disposition': 'attachment; filename=roydon-observations.csv'})
@@ -682,6 +834,7 @@ def start_poller():
         log.error('RTT_TOKEN is not set - no train data will be loaded')
         return
     threading.Thread(target=poll_forever, daemon=True, name='rtt-poller').start()
+    threading.Thread(target=reconcile_forever, daemon=True, name='reconciler').start()
 
 
 if __name__ == '__main__':

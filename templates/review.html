@@ -35,7 +35,11 @@
     <h1>Observations vs predictions</h1>
   </div>
 
-  <h2>How far out is the model?</h2>
+  <h2>Measured at the crossing (from RTT's recorded train times)</h2>
+  <div class="cards" id="measured"></div>
+  <p class="hint">These are the numbers that calibrate the model: seconds from lights-on to the train actually reaching Roydon, and from the train to the barrier lifting. They use the actual times RTT records after each train has passed, fetched nightly. <button id="reconcile" style="font:inherit;font-size:13px;min-height:32px;cursor:pointer">Fetch actuals now</button></p>
+
+  <h2>How far out was the app at the time?</h2>
   <div class="cards" id="cards"></div>
   <p class="hint">Positive means the real event happened <b>later</b> than the app predicted; negative means earlier. "Lights started" and "Barrier up" are the two that calibrate the lead and trail times. Split by direction and stop/pass to see whether one number fits all trains.</p>
 
@@ -48,11 +52,34 @@
   const fmt = iso => iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
   const day = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
+  // Reference time for an observation. When RTT's recorded actual time for
+  // the train is known, measure against THAT (the thing we are calibrating);
+  // otherwise fall back to the forecast the phone had.
+  function ref(o) {
+    const s = o.snapshot || {}, a = o.actual || {};
+    const cfg = s.cfg || { lead: 120, trail: 12 };
+    if (a.train_at) {
+      const t = new Date(a.train_at);
+      if (o.event === 'train') return { at: t, src: 'actual' };
+      if (o.event === 'lights' || o.event === 'down') return { at: new Date(t.getTime() - cfg.lead * 1000), src: 'actual' };
+      if (o.event === 'up') return { at: new Date(t.getTime() + cfg.trail * 1000), src: 'actual' };
+    }
+    const f = o.event === 'up' ? s.predicted_open : o.event === 'train' ? s.nearest_train_at : (o.event === 'lights' || o.event === 'down') ? s.predicted_close : null;
+    return f ? { at: new Date(f), src: 'forecast' } : null;
+  }
   function delta(o) {
-    const s = o.snapshot || {};
-    const ref = o.event === 'up' ? s.predicted_open : o.event === 'train' ? s.nearest_train_at : (o.event === 'lights' || o.event === 'down') ? s.predicted_close : null;
-    if (!ref) return null;
-    return Math.round((new Date(o.at) - new Date(ref)) / 1000);
+    const r = ref(o);
+    return r ? Math.round((new Date(o.at) - r.at) / 1000) : null;
+  }
+  // The two numbers that matter: how long before the train do the lights
+  // start, and how long after it does the barrier lift. Only from actuals.
+  function leadTrail(o) {
+    const a = o.actual || {};
+    if (!a.train_at) return null;
+    const secs = Math.round((new Date(a.train_at) - new Date(o.at)) / 1000);
+    if (o.event === 'lights') return { lead: secs };
+    if (o.event === 'up') return { trail: -secs };
+    return null;
   }
   function stats(vals) {
     if (!vals.length) return null;
@@ -80,6 +107,21 @@
     const downs = obs.filter(o => o.event === 'down' || o.event === 'lights');
     const wrongClosed = downs.filter(o => (o.snapshot || {}).state === 'open' && o.event === 'down').length;
     const spotCard = `<div class="card"><div class="k">State checks</div><div class="v">${spots.length + downs.length ? Math.round(100 * (1 - (wrongOpen + wrongClosed) / (spots.length + downs.length))) + '%' : '–'}</div><div class="s">app agreed · ${wrongOpen} said closed when open · ${wrongClosed} said open when closed</div></div>`;
+    const leads = obs.map(leadTrail).filter(x => x && x.lead != null).map(x => x.lead);
+    const trails = obs.map(leadTrail).filter(x => x && x.trail != null).map(x => x.trail);
+    const leadStop = obs.filter(o => o.event === 'lights' && (o.snapshot || {}).nearest_train_stops).map(leadTrail).filter(Boolean).map(x => x.lead);
+    const leadPass = obs.filter(o => o.event === 'lights' && (o.snapshot || {}).nearest_train_stops === false).map(leadTrail).filter(Boolean).map(x => x.lead);
+    const leadTo = obs.filter(o => o.event === 'lights' && (o.snapshot || {}).nearest_train_to_london).map(leadTrail).filter(Boolean).map(x => x.lead);
+    const leadFrom = obs.filter(o => o.event === 'lights' && (o.snapshot || {}).nearest_train_to_london === false).map(leadTrail).filter(Boolean).map(x => x.lead);
+    const reconciled = obs.filter(o => (o.actual || {}).train_at).length;
+    const measured = (title, vals, sub) => { const st = stats(vals); return st ? `<div class="card"><div class="k">${title}</div><div class="v">${st.median}s</div><div class="s">median of ${st.n}, mean ${st.mean}s, range ${st.min} to ${st.max}${sub ? '<br>' + sub : ''}</div></div>` : `<div class="card"><div class="k">${title}</div><div class="v">–</div><div class="s">${sub || 'no reconciled data yet'}</div></div>`; };
+    document.getElementById('measured').innerHTML =
+      measured('Lights before train', leads, `model assumes 120 s · ${reconciled} of ${obs.length} observations have RTT actuals`) +
+      measured('Barrier up after train', trails, 'model assumes 12 s') +
+      measured('Lead – stopping trains', leadStop) +
+      measured('Lead – passing trains', leadPass) +
+      measured('Lead – towards London', leadTo) +
+      measured('Lead – from London', leadFrom);
     document.getElementById('cards').innerHTML = spotCard +
       card('Lights vs predicted down', stats(by('lights')), 'all trains') +
       card('Barrier up vs predicted up', stats(by('up'))) +
@@ -93,12 +135,20 @@
     tb.innerHTML = obs.map(o => {
       const s = o.snapshot || {};
       const d = delta(o);
-      const pred = o.event === 'open' ? (s.state === 'closed' ? 'CLOSED – wrong' : s.state || '') : o.event === 'up' ? `up ${fmt(s.predicted_open)}` : o.event === 'train' ? `train ${fmt(s.nearest_train_at)}` : `down ${fmt(s.predicted_close)}`;
+      const r = ref(o);
+      const a = o.actual || {};
+      const pred = o.event === 'open' ? (s.state === 'closed' ? 'CLOSED – wrong' : s.state || '') : (r ? `${o.event === 'up' ? 'up' : o.event === 'train' ? 'train' : 'down'} ${fmt(r.at.toISOString())}<br><small>${r.src === 'actual' ? 'from RTT actual ' + fmt(a.train_at) : 'forecast only'}</small>` : '');
       const cls = d == null ? '' : d > 0 ? 'late' : d < 0 ? 'early' : '';
       return `<tr><td>${day(o.at)}<br>${fmt(o.at)}</td><td>${NAMES[o.event] || o.event}<br><small>app: ${s.state || ''}</small></td><td>${pred}</td><td>${s.nearest_train || ''}</td><td>${o.note || ''}</td><td class="num ${cls}">${d == null ? '' : (d > 0 ? '+' : '') + d + 's'}</td></tr>`;
     }).join('') || '<tr><td colspan="6">No observations yet.</td></tr>';
   }
   load();
+  document.getElementById('reconcile').addEventListener('click', async () => {
+    const b = document.getElementById('reconcile'); b.disabled = true; b.textContent = 'Fetching…';
+    try { const r = await fetch('/api/observations/reconcile', { method: 'POST' }); const j = await r.json(); b.textContent = `Checked ${j.checked} trains, updated ${j.updated}`; await load(); }
+    catch (e) { b.textContent = 'Failed – try again'; }
+    setTimeout(() => { b.disabled = false; b.textContent = 'Fetch actuals now'; }, 4000);
+  });
 })();
 </script>
 </body>

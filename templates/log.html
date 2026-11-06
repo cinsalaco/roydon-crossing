@@ -146,6 +146,9 @@
       closure_trains: c ? c.trains.map(t => `${t.headcode || ''} ${C.hhmm(t.at)} ${t.origin}>${t.destination}${t.stops ? ' stops' : ''}`).join('; ') : '',
       nearest_train: nearest ? `${nearest.headcode || ''} ${C.hhmm(nearest.at)} ${nearest.origin}>${nearest.destination}${nearest.stops ? ' stops' : ' passes'}${nearest.toLondon ? ' toLondon' : ' fromLondon'}` : '',
       nearest_train_at: nearest ? nearest.at.toISOString() : null,
+      nearest_train_rid: nearest ? nearest.rid : null,
+      nearest_train_stops: nearest ? nearest.stops : null,
+      nearest_train_to_london: nearest ? nearest.toLondon : null,
       data_age_sec: C.loader.dataAgeSec(now),
       cfg: { lead: C.CFG.leadSec, trail: C.CFG.trailSec, merge: C.CFG.mergeGapSec },
     };
