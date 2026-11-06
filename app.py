@@ -575,6 +575,7 @@ def fetch_actual_at_roydon(rid):
     resp = requests.get(f'{RTT_BASE_URL}/gb-nr/service',
                         headers=_base_headers(get_access_token()),
                         params={'uniqueIdentity': rid, 'detailed': 'true'}, timeout=30)
+    log.info('Service lookup %s -> HTTP %s', rid, resp.status_code)
     if resp.status_code == 401 and handle_unauthorized():
         resp = requests.get(f'{RTT_BASE_URL}/gb-nr/service',
                             headers=_base_headers(get_access_token()),
@@ -633,6 +634,7 @@ def _obs_rid(o):
         rid = None
         if resp.status_code == 200:
             rid = (((resp.json() or {}).get('service') or {}).get('scheduleMetadata') or {}).get('uniqueIdentity')
+        log.info('Headcode lookup %s %s -> HTTP %s rid=%s %s', headcode, key[1], resp.status_code, rid, '' if resp.status_code == 200 else resp.text[:200])
         _rid_lookup_cache[key] = rid
         time.sleep(1.5)
         return rid
@@ -653,6 +655,7 @@ def reconcile_observations(force=False):
                and (force or not o.get('actual'))
                and parse_iso(o.get('at')) and parse_iso(o['at']) < datetime.now(LONDON) - timedelta(minutes=20)]
     rids = sorted({_obs_rid(o) for o in pending})
+    log.info('Reconcile: %d observations pending, %d distinct trains', len(pending), len(rids))
     if not rids:
         return {'checked': 0, 'updated': 0}
     log.info('Reconciling %d observations across %d trains', len(pending), len(rids))
