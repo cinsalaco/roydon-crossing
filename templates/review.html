@@ -57,7 +57,7 @@
   // otherwise fall back to the forecast the phone had.
   function ref(o) {
     const s = o.snapshot || {}, a = o.actual || {};
-    const cfg = s.cfg || { lead: 120, trail: 12 };
+    const cfg = s.cfg || { lead: 120, trail: 40 };
     if (a.train_at) {
       const t = new Date(a.train_at);
       if (o.event === 'train') return { at: t, src: 'actual' };

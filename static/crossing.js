@@ -14,8 +14,9 @@ window.Crossing = (function () {
 
   // ---- The model's assumptions. Change them here and nowhere else. ----
   const CFG = {
-    leadSec: 120,        // barrier assumed down this long before a train reaches Roydon
-    trailSec: 12,        // ...and back up this long after
+    // Times are relative to RTT's Roydon timing point (the train reaches the road ~20s later).
+    leadSec: 120,        // barrier assumed down this long before the RTT time (logged: 92-111s)
+    trailSec: 40,        // ...and back up this long after (logged 4-6 Nov 2026: 30-58s, median ~42s)
     mergeGapSec: 90,     // if it would be up for less than this, it stays down (one closure)
     liftNoteMinSec: 30,  // inside a merged closure, note a possible lift if the gap is at least this
     closingSec: 60,      // "Closing" state once a closure is this close

@@ -81,7 +81,7 @@ Open http://localhost:5002. Run the parser test with `python tests_parser.py`.
 ## Calibrating the closure model
 
 The four assumptions live at the top of `static/crossing.js` (`CFG`): barrier
-down 120 s before a train, up 12 s after, closures merge when the gap would be
+down 120 s before a train, up 40 s after, closures merge when the gap would be
 under 90 s. Use `/log` at the crossing, then `/log/review` to see how far out
 each one is. Observations are stored in `DATA_DIR/observations.json`
 (default `./data`, which is lost on redeploy unless `DATA_DIR` points at a
