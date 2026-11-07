@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6df6"/><stop offset="1" stop-color="#1437a8"/></linearGradient><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e3e6ec"/></linearGradient><linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a52"/><stop offset="1" stop-color="#c8211e"/></linearGradient><filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="16"/></filter></defs>
+<rect width="1024" height="1024" fill="url(#bg)"/>
+<!-- single bar from the corner, stripes as red bands, pivot dot -->
+<g transform="translate(200 790) rotate(-38)">
+  <rect x="-10" y="-74" width="800" height="148" rx="74" fill="#000" opacity="0.22" filter="url(#sh)" transform="translate(0 28)"/>
+  <clipPath id="c"><rect x="-10" y="-74" width="800" height="148" rx="74"/></clipPath>
+  <rect x="-10" y="-74" width="800" height="148" rx="74" fill="url(#w)"/>
+  <g clip-path="url(#c)" fill="url(#r)"><rect x="190" y="-90" width="130" height="180"/><rect x="450" y="-90" width="130" height="180"/></g>
+</g>
+<circle cx="200" cy="790" r="56" fill="#0d2a7a" opacity="0.9"/><circle cx="200" cy="790" r="30" fill="#F0A202"/>
+</svg>
