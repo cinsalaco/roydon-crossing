@@ -80,9 +80,13 @@ Open http://localhost:5002. Run the parser test with `python tests_parser.py`.
 
 ## Calibrating the closure model
 
-The four assumptions live at the top of `static/crossing.js` (`CFG`): barrier
-down 120 s before a train, up 40 s after, closures merge when the gap would be
-under 90 s. Use `/log` at the crossing, then `/log/review` to see how far out
+The assumptions live at the top of `static/crossing.js` (`CFG`). The crossing
+is on the Harlow side of the platforms, so the model first estimates when each
+train is actually on the road (pass time + 20 s; stopping towards Harlow:
+departure + 30 s; stopping towards London: arrival - 15 s). Barriers go down
+120 s before a stopping train arrives or a passing train passes, and lift 20 s
+after the train clears the road; closures merge when the gap would be under
+90 s. Use `/log` at the crossing, then `/log/review` to see how far out
 each one is. Observations are stored in `DATA_DIR/observations.json`
 (default `./data`, which is lost on redeploy unless `DATA_DIR` points at a
 Railway volume) - download the CSV regularly.

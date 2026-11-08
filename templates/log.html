@@ -150,7 +150,8 @@
       nearest_train_stops: nearest ? nearest.stops : null,
       nearest_train_to_london: nearest ? nearest.toLondon : null,
       data_age_sec: C.loader.dataAgeSec(now),
-      cfg: { lead: C.CFG.leadSec, trail: C.CFG.trailSec, merge: C.CFG.mergeGapSec },
+      cfg: { lead: C.CFG.leadSec, trail: C.CFG.trailSec, merge: C.CFG.mergeGapSec,
+             roadPass: C.CFG.roadAfterPassSec, roadDep: C.CFG.roadAfterDepSec, roadArr: C.CFG.roadBeforeArrSec },
     };
   }
 

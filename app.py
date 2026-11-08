@@ -300,6 +300,8 @@ def parse_service(service):
         'realtime_iso': to_london(realtime).isoformat() if realtime else None,
         'actual': bool(parse_iso(activity.get('realtimeActual'))),
         'arrival_time': hhmm(arr_rt or arr_sched) if is_stopping else None,
+        # barriers go down before a stopping train *arrives*, so the model needs this too
+        'arrival_iso': to_london(arr_rt or arr_sched).isoformat() if is_stopping and (arr_rt or arr_sched) else None,
         'lateness_min': activity.get('realtimeAdvertisedLateness') or activity.get('realtimeInternalLateness'),
         'stp': meta.get('stpIndicator'),
         'runs_as_required': bool(meta.get('runsAsRequired')),

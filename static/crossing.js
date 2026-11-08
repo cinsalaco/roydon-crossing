@@ -14,9 +14,18 @@ window.Crossing = (function () {
 
   // ---- The model's assumptions. Change them here and nowhere else. ----
   const CFG = {
-    // Times are relative to RTT's Roydon timing point (the train reaches the road ~20s later).
-    leadSec: 120,        // barrier assumed down this long before the RTT time (logged: 92-111s)
-    trailSec: 40,        // ...and back up this long after (logged 4-6 Nov 2026: 30-58s, median ~42s)
+    // The crossing is on the Harlow side of the platforms. RTT times the train at the
+    // station, so the model first works out when the train is actually at the road:
+    //   passing train            -> RTT pass time + roadAfterPassSec
+    //   stopping, towards Harlow -> RTT departure + roadAfterDepSec (stops, then crosses)
+    //   stopping, towards London -> RTT arrival - roadBeforeArrSec (crosses, then stops)
+    // Barriers always go down before a stopping train *arrives*, so the lead is measured
+    // from arrival for stopping trains and from the pass time for passing ones.
+    leadSec: 120,        // barrier down this long before the RTT arrival/pass time (logged 92-128s)
+    trailSec: 20,        // ...and back up this long after the train clears the road (logged 11-30s)
+    roadAfterPassSec: 20,
+    roadAfterDepSec: 30,
+    roadBeforeArrSec: 15,
     mergeGapSec: 90,     // if it would be up for less than this, it stays down (one closure)
     liftNoteMinSec: 30,  // inside a merged closure, note a possible lift if the gap is at least this
     closingSec: 60,      // "Closing" state once a closure is this close
@@ -49,22 +58,33 @@ window.Crossing = (function () {
     const at = parseIso(t.parsed_time) || liveAt || schedAt;
     if (!at) return null;
     const diffMin = (liveAt && schedAt) ? Math.round((liveAt - schedAt) / 60000) : 0;
+    const stops = t.type === 'stopping';
+    const toLondon = LONDON_NAMES.includes(t.destination_name || '') || t.destination === 'LIVST';
+    // Arrival at the platform (stopping trains only); fall back to the departure time.
+    const arrAt = (stops && parseIso(t.arrival_iso)) || at;
+    // When the train is actually on the road, and when the barriers start to come down.
+    let roadAt, downFrom;
+    if (!stops) { roadAt = at.getTime() + CFG.roadAfterPassSec * 1000; downFrom = at; }
+    else if (toLondon) { roadAt = arrAt.getTime() - CFG.roadBeforeArrSec * 1000; downFrom = arrAt; }
+    else { roadAt = at.getTime() + CFG.roadAfterDepSec * 1000; downFrom = arrAt; }
     return {
       rid: t.rid,
       headcode: t.headcode || null,
-      at,                                  // when it reaches Roydon (live if known)
+      at,                                  // RTT time at the station (departure for stopping trains)
+      arrAt,
+      roadAt: new Date(roadAt),            // best estimate of when it is on the crossing
       schedAt,
       liveAt,
-      stops: t.type === 'stopping',
+      stops,
       origin: shortName(t.origin_name, t.origin),
       destination: shortName(t.destination_name, t.destination),
-      toLondon: LONDON_NAMES.includes(t.destination_name || '') || t.destination === 'LIVST',
+      toLondon,
       freight: t.passenger_service === false,
       late: diffMin > 0 ? diffMin : 0,
       early: diffMin < 0 ? -diffMin : 0,
       passed: !!t.actual,
-      closeAt: new Date(at.getTime() - CFG.leadSec * 1000),
-      openAt: new Date(at.getTime() + CFG.trailSec * 1000),
+      closeAt: new Date(downFrom.getTime() - CFG.leadSec * 1000),
+      openAt: new Date(roadAt + CFG.trailSec * 1000),
     };
   }
 

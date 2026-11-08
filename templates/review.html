@@ -60,9 +60,20 @@
     const cfg = s.cfg || { lead: 120, trail: 40 };
     if (a.train_at) {
       const t = new Date(a.train_at);
-      if (o.event === 'train') return { at: t, src: 'actual' };
-      if (o.event === 'lights' || o.event === 'down') return { at: new Date(t.getTime() - cfg.lead * 1000), src: 'actual' };
-      if (o.event === 'up') return { at: new Date(t.getTime() + cfg.trail * 1000), src: 'actual' };
+      // What the model in force at the time would have predicted from RTT's actual times.
+      // Newer snapshots carry road offsets (lead from arrival for stopping trains, trail
+      // from the moment the train is on the road); older ones measured both from train_at.
+      const stops = !!s.nearest_train_stops, toLon = !!s.nearest_train_to_london;
+      const arr = a.arrival_at ? new Date(a.arrival_at) : t;
+      let downFrom = t, road = t.getTime();
+      if (cfg.roadPass != null) {
+        if (!stops) road = t.getTime() + cfg.roadPass * 1000;
+        else if (toLon) { road = arr.getTime() - cfg.roadArr * 1000; downFrom = arr; }
+        else { road = t.getTime() + cfg.roadDep * 1000; downFrom = arr; }
+      }
+      if (o.event === 'train') return { at: new Date(road), src: 'actual' };
+      if (o.event === 'lights' || o.event === 'down') return { at: new Date(downFrom.getTime() - cfg.lead * 1000), src: 'actual' };
+      if (o.event === 'up') return { at: new Date(road + cfg.trail * 1000), src: 'actual' };
     }
     const f = o.event === 'up' ? s.predicted_open : o.event === 'train' ? s.nearest_train_at : (o.event === 'lights' || o.event === 'down') ? s.predicted_close : null;
     return f ? { at: new Date(f), src: 'forecast' } : null;
@@ -116,8 +127,8 @@
     const reconciled = obs.filter(o => (o.actual || {}).train_at).length;
     const measured = (title, vals, sub) => { const st = stats(vals); return st ? `<div class="card"><div class="k">${title}</div><div class="v">${st.median}s</div><div class="s">median of ${st.n}, mean ${st.mean}s, range ${st.min} to ${st.max}${sub ? '<br>' + sub : ''}</div></div>` : `<div class="card"><div class="k">${title}</div><div class="v">–</div><div class="s">${sub || 'no reconciled data yet'}</div></div>`; };
     document.getElementById('measured').innerHTML =
-      measured('Lights before train', leads, `model assumes 120 s · ${reconciled} of ${obs.length} observations have RTT actuals`) +
-      measured('Barrier up after train', trails, 'model assumes 12 s') +
+      measured('Lights before RTT time', leads, `model: 120 s before arrival (stopping) or pass time · ${reconciled} of ${obs.length} observations have RTT actuals`) +
+      measured('Barrier up after RTT time', trails, 'model: 20 s after the train is on the road (pass +20 s, departure +30 s, arrival −15 s)') +
       measured('Lead – stopping trains', leadStop) +
       measured('Lead – passing trains', leadPass) +
       measured('Lead – towards London', leadTo) +
