@@ -23,7 +23,9 @@
     --grey: #4A4F57;
     --ink: #15171a;
     --panel: #F2F3F5;
+    --blue: #1565c0;
     --fg: #ffffff;
+    --bg: var(--green);
     --rule: rgba(255,255,255,0.3);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -52,29 +54,53 @@
     width: 100%;
     max-width: 520px;
     margin: 0 auto;
-    padding: calc(16px + env(safe-area-inset-top)) 24px calc(16px + env(safe-area-inset-bottom));
+    padding: calc(12px + env(safe-area-inset-top)) 24px calc(16px + env(safe-area-inset-bottom));
   }
   @media (max-width: 360px) { .page { padding-left: 18px; padding-right: 18px; } }
 
-  .state { margin-top: 4px; padding: 16px 18px; border-radius: 12px; background: rgba(255,255,255,0.16); border: 1.5px solid rgba(255,255,255,0.35); }
-  body.state-closed .state, body.state-unavailable .state { background: rgba(0,0,0,0.22); }
-  body.state-closing .state { background: rgba(0,0,0,0.10); border-color: rgba(0,0,0,0.3); }
-  .state-word { font-size: clamp(40px, 14vw, 56px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-  .state-line { font-size: clamp(16px, 4.6vw, 18px); font-weight: 500; line-height: 1.3; margin-top: 8px; }
+  /* Freshness, top right, small. Becomes prominent only when something is wrong. */
+  .fresh { display: flex; justify-content: flex-end; min-height: 24px; font-size: 13px; font-weight: 500; opacity: 0.75; }
+  .fresh.warn { opacity: 1; font-weight: 700; }
 
-  .count { margin-top: clamp(20px, 4vh, 30px); }
-  .count-label { font-size: 18px; font-weight: 500; opacity: 0.85; }
-  .count-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-  .count-value { font-size: clamp(76px, 29vw, 116px); font-weight: 700; font-stretch: 75%; line-height: 0.92; letter-spacing: -0.03em; margin-top: 4px; }
-  .count-detail { font-size: 18px; font-weight: 600; opacity: 0.9; line-height: 1.25; }
-  .count-detail small { display: block; font-size: 18px; font-weight: 500; opacity: 0.8; }
+  /* Status: the word, then the time. Nothing else by default. */
+  .state-word { margin-top: clamp(16px, 4vh, 36px); font-size: clamp(52px, 17vw, 68px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .state-line { font-size: clamp(17px, 4.8vw, 20px); font-weight: 500; line-height: 1.35; margin-top: 14px; max-width: 24em; }
 
-  .strip-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 28px; padding: 14px 16px 12px; border-radius: 12px; background: var(--panel); color: var(--ink); }
-  .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; }
-  .legend { display: inline-flex; align-items: center; gap: 12px; font-weight: 500; }
+  .count { margin-top: clamp(24px, 5vh, 44px); }
+  .count-label { font-size: clamp(18px, 5vw, 20px); font-weight: 500; opacity: 0.85; }
+  .count-value { font-size: clamp(96px, 36vw, 150px); font-weight: 700; font-stretch: 75%; line-height: 0.9; letter-spacing: -0.03em; margin-top: 4px; white-space: nowrap; }
+  .count-value.long { font-size: clamp(76px, 27vw, 112px); margin-top: 12px; }   /* '12 min' etc. */
+  .count-at { font-size: clamp(20px, 5.6vw, 22px); font-weight: 600; margin-top: 10px; }
+
+  /* The one piece of uncertainty we show, only when it exists. */
+  .note { display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; margin-top: clamp(18px, 3.5vh, 28px); padding: 9px 13px 9px 11px; border-radius: 10px; background: var(--amber); color: #1a1200; font-size: 15px; font-weight: 700; line-height: 1.25; }
+  .note::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #1a1200; flex-shrink: 0; }
+  body.state-closing .note { background: #1a1200; color: #FFD27A; }
+  body.state-closing .note::before { background: #FFD27A; }
+
+  /* One-time explanation. */
+  .intro { display: flex; align-items: flex-start; gap: 12px; margin-top: clamp(18px, 3.5vh, 28px); padding: 12px 14px; border-radius: 10px; background: rgba(0,0,0,0.18); font-size: 14px; line-height: 1.4; }
+  body.state-closing .intro { background: rgba(0,0,0,0.10); }
+  .intro p { flex: 1; }
+  .intro button { min-height: 36px; padding: 0 12px; border: 1.5px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+  .spacer { flex: 1; min-height: 24px; }
+
+  /* The single disclosure control. */
+  .more { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; border: 2px solid var(--fg); border-radius: 12px; background: transparent; color: var(--fg); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; opacity: 0.92; }
+  .more svg { transition: transform 0.2s ease; }
+  .more[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .more:focus-visible, .retry:focus-visible, .links a:focus-visible, .intro button:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+
+  /* Expanded detail: strip, next window, trains, links. */
+  .detail { margin-top: 18px; }
+  .strip-panel { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 12px; border-radius: 12px; background: var(--panel); color: var(--ink); }
+  .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .legend { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; font-size: 13px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-  .strip-wrap { position: relative; height: 16px; margin-top: 18px; }
+  .legend i.dot { border-radius: 50%; background: var(--amber); }
+  .strip-wrap { position: relative; height: 16px; margin-top: 20px; }
   .strip { display: flex; height: 16px; border-radius: 3px; overflow: hidden; gap: 2px; }
   .strip div { min-width: 2px; }
   .strip .open { background: var(--green); }
@@ -84,35 +110,29 @@
   .strip-next { position: absolute; top: -16px; transform: translateX(-50%); font-size: 11px; font-weight: 700; white-space: nowrap; }
   .strip-next::after { content: ''; position: absolute; left: 50%; top: 13px; transform: translateX(-50%); border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid currentColor; }
   .strip-next.closed { color: var(--red); } .strip-next.open { color: var(--green); }
+  .strip-lift { position: absolute; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); transform: translateX(-50%); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); pointer-events: none; }
   .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.65; margin-top: 4px; }
   .strip-axis span:first-child { font-weight: 700; opacity: 1; }
   .strip-sentence { font-size: 14px; font-weight: 500; margin-top: 4px; }
 
-  .trains { margin-top: 22px; }
-  .trains h2 { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; opacity: 0.8; padding-bottom: 4px; }
-  .train { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 15px; }
+  .trains { margin-top: 20px; }
+  .trains h2 { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; opacity: 0.9; padding-bottom: 6px; }
+  .train { display: flex; align-items: baseline; gap: 10px; min-height: 44px; padding: 10px 0; border-top: 1px solid var(--rule); font-size: 16px; }
   .train:last-child { border-bottom: 1px solid var(--rule); }
-  .train.gone { opacity: 0.6; }
-  .train .t { font-weight: 700; min-width: 46px; white-space: nowrap; }
+  .train.gone { opacity: 0.65; }
+  .train .t { font-weight: 700; min-width: 48px; white-space: nowrap; }
   .train .t .delta { font-size: 12px; font-weight: 700; margin-left: 4px; padding: 1px 5px; border-radius: 4px; color: #fff; background: var(--red); }
-  .train .t .delta.early { background: var(--blue, #1565c0); }
+  .train .t .delta.early { background: var(--blue); }
   body.state-closed .train .t .delta { background: #fff; color: var(--red); }
-  body.state-closed .train .t .delta.early { background: #fff; color: var(--blue, #1565c0); }
-  .train .tag.late { font-weight: 700; }
+  body.state-closed .train .t .delta.early { background: #fff; color: var(--blue); }
   .train .route { flex: 1; }
-  .train .tag { font-size: 13px; opacity: 0.85; white-space: nowrap; }
-  .lift-note { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin: 4px 0; border-radius: 6px; background: rgba(255,255,255,0.18); font-size: 13px; font-weight: 600; }
-  body.state-closing .lift-note { background: rgba(0,0,0,0.12); }
+  .train .tag { font-size: 14px; opacity: 0.9; white-space: nowrap; }
+  .lift-note { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 4px 0; border-radius: 6px; background: rgba(240,162,2,0.28); font-size: 14px; font-weight: 600; }
+  .lift-note::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
 
-  .spacer { flex: 1; min-height: 20px; }
-  :root { --blue: #1565c0; }
-  .footer { display: flex; flex-direction: column; gap: 10px; }
-  .footer .primary { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 52px; border-radius: 12px; background: var(--fg); color: var(--bg); font-size: 17px; font-weight: 700; text-decoration: none; }
-  .footer .meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; font-weight: 500; }
-  .footer .meta a { display: inline-flex; align-items: center; min-height: 36px; color: inherit; opacity: 0.8; text-decoration: underline; text-underline-offset: 3px; }
-  .footer .updated { flex: 1; text-align: right; opacity: 0.75; }
-  .footer .updated.warn { opacity: 1; font-weight: 600; }
-  .footer a:focus-visible, .retry:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; border-radius: 4px; }
+  .links { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 18px; font-size: 15px; font-weight: 600; }
+  .links a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: inherit; text-decoration: none; }
+  .links a.quiet { font-weight: 500; opacity: 0.85; text-decoration: underline; text-underline-offset: 3px; }
 
   .retry { margin-top: 32px; align-self: flex-start; min-height: 48px; padding: 0 22px; border: 2px solid rgba(255,255,255,0.7); border-radius: 10px; background: transparent; color: inherit; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
   .hidden { display: none !important; }
@@ -121,49 +141,60 @@
 </head>
 <body class="state-open">
 <main class="page">
-  <div class="state">
-    <h1 class="state-word" id="stateWord">Loading</h1>
-    <p class="state-line" id="stateLine">Fetching live train data.</p>
-  </div>
+  <div class="fresh" id="fresh" aria-live="polite"></div>
+
+  <h1 class="state-word" id="stateWord">Loading</h1>
+  <p class="state-line" id="stateLine">Fetching live train data.</p>
 
   <div class="count" id="count">
     <div class="count-label" id="countLabel"></div>
-    <div class="count-row">
-      <div class="count-value" id="countValue"></div>
-      <div class="count-detail" id="countDetail"></div>
-    </div>
+    <div class="count-value" id="countValue"></div>
+    <div class="count-at" id="countAt"></div>
+  </div>
+
+  <div class="note hidden" id="note"></div>
+
+  <div class="intro hidden" id="intro">
+    <p>Open and Closed are predictions from live train data, not a signal that it's safe to cross. Always follow the lights and barriers at the crossing.</p>
+    <button type="button" id="introOk">Got it</button>
   </div>
 
   <button type="button" class="retry hidden" id="retry">Try again now</button>
 
-  <section class="strip-panel" id="stripPanel" aria-label="Next 90 minutes">
-    <div class="strip-head">
-      <span>Next 90 minutes</span>
-      <span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span></span>
-    </div>
-    <div class="strip-wrap">
-      <div class="strip-next hidden" id="stripMarker"></div>
-      <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
-      <div class="strip-now" aria-hidden="true"></div>
-    </div>
-    <div class="strip-axis" id="stripAxis"></div>
-    <div class="strip-sentence" id="stripNext"></div>
-  </section>
-
-  <section class="trains" id="trains">
-    <h2><span id="trainsHeading">Trains in the next closure</span><span id="trainsCount"></span></h2>
-    <div id="trainList"></div>
-  </section>
-
   <div class="spacer"></div>
 
-  <div class="footer">
-    <a href="/timeline" class="primary">See the next 90 minutes <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
-    <div class="meta">
-      <a href="/log">Log what I see</a>
-      <span class="updated" id="updated">Loading…</span>
+  <button type="button" class="more" id="more" aria-expanded="false" aria-controls="detail">
+    <span id="moreLabel">See timings &amp; trains</span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+
+  <section class="detail hidden" id="detail">
+    <section class="strip-panel" id="stripPanel" aria-label="Next 90 minutes">
+      <div class="strip-head">
+        <span>Next 90 min</span>
+        <span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span>
+      </div>
+      <div class="strip-wrap">
+        <div class="strip-next hidden" id="stripMarker"></div>
+        <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+        <div id="stripLifts"></div>
+        <div class="strip-now" aria-hidden="true"></div>
+      </div>
+      <div class="strip-axis" id="stripAxis"></div>
+      <div class="strip-sentence" id="stripNext"></div>
+    </section>
+
+    <section class="trains" id="trains">
+      <h2><span id="trainsHeading">Trains in the next closure</span><span id="trainsCount"></span></h2>
+      <div id="trainList"></div>
+    </section>
+
+    <div class="links">
+      <a href="/log" class="quiet">Log what I see</a>
+      <a href="/timeline">Full timeline <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
-  </div>
+  </section>
+
   <div class="sr-only" aria-live="polite" id="live"></div>
 </main>
 
@@ -174,7 +205,25 @@
   const $ = id => document.getElementById(id);
   const THEME = { open: '#0E6B3A', closing: '#F0A202', closed: '#B81F1E', unavailable: '#4A4F57' };
   let lastAnnounced = '';
-  let fetchFailures = 0;
+  let expanded = false;   // always starts collapsed
+
+  // ---- one-time explanation ----
+  let seenIntro = false;
+  try { seenIntro = localStorage.getItem('introSeen') === '1'; } catch (e) {}
+  $('introOk').addEventListener('click', () => {
+    seenIntro = true;
+    try { localStorage.setItem('introSeen', '1'); } catch (e) {}
+    $('intro').classList.add('hidden');
+  });
+
+  // ---- disclosure ----
+  $('more').addEventListener('click', () => {
+    expanded = !expanded;
+    $('more').setAttribute('aria-expanded', String(expanded));
+    $('moreLabel').textContent = expanded ? 'Hide timings & trains' : 'See timings & trains';
+    $('detail').classList.toggle('hidden', !expanded);
+    if (expanded) render();
+  });
 
   function trainRow(tr, now) {
     const gone = tr.openAt <= now;
@@ -187,7 +236,7 @@
   }
 
   function liftNote(l) {
-    return `<div class="lift-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg><span>Barrier may lift briefly around ${C.hhmm(l.at)}</span></div>`;
+    return `<div class="lift-note">Possible brief lift ~${C.hhmm(l.at)} — don't rely on it</div>`;
   }
 
   function renderTrains(closure, now) {
@@ -205,22 +254,30 @@
     $('trainsCount').textContent = gone ? `${gone} of ${n} gone` : `${n} train${n === 1 ? '' : 's'}`;
   }
 
-  function renderStrip(periods, closures, now, state) {
-    const total = periods.reduce((s, p) => s + p.seconds, 0) || 1;
+  function renderStrip(periods, closures, now) {
+    const windowMs = C.CFG.windowMin * 60000;
     $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
     // marker for the next change of state
     const m = $('stripMarker');
     if (periods.length > 1) {
       const nextP = periods[1];
-      const pct = Math.min(97, Math.max(3, 100 * (nextP.start - now) / (C.CFG.windowMin * 60000)));
+      const pct = Math.min(97, Math.max(3, 100 * (nextP.start - now) / windowMs));
       m.textContent = C.hhmm(nextP.start);
       m.className = 'strip-next ' + nextP.kind;
       m.style.left = pct + '%';
     } else {
       m.classList.add('hidden');
     }
+    // amber dots for possible brief lifts inside closures
+    const lifts = [];
+    for (const c of closures) for (const l of c.lifts) {
+      if (l.at > now && l.at - now < windowMs) lifts.push(l);
+    }
+    $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / windowMs).toFixed(1)}%" title="Possible brief lift around ${C.hhmm(l.at)}"></span>`).join('');
+    $('legendLift').classList.toggle('hidden', lifts.length === 0);
+
     const axis = ['now'];
-    for (let m = 30; m <= 90; m += 30) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
+    for (let k = 30; k <= 90; k += 30) axis.push(C.hhmm(new Date(now.getTime() + k * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
     // "Next: closed 22:24 to 22:27, then open until 22:32"
     let text = '';
@@ -235,6 +292,20 @@
     $('stripNext').textContent = text;
   }
 
+  function freshness(now, age, paused) {
+    const el = $('fresh');
+    if (!C.loader.lastServerPoll) { el.textContent = ''; return; }
+    if (paused) {
+      el.textContent = `Timetable from ${C.hhmm(C.loader.lastServerPoll)} · live updates resume ${C.hhmm(C.loader.pausedUntil)}`;
+      el.classList.add('warn');
+      return;
+    }
+    const ago = age < 60 ? 'just now' : `${Math.round(age / 60)} min ago`;
+    const stale = age >= C.CFG.staleWarnSec;
+    el.textContent = (stale ? 'Updating… last data ' : 'Updated ') + ago;
+    el.classList.toggle('warn', stale);
+  }
+
   function render() {
     const now = new Date();
     const age = C.loader.dataAgeSec(now);
@@ -242,36 +313,28 @@
     const paused = C.loader.pausedUntil && C.loader.pausedUntil > now;
     const state = C.stateAt(closures, now, age, paused);
 
-
     document.body.className = 'state-' + state.kind;
     $('themeColor').setAttribute('content', THEME[state.kind]);
-
-    // data-time note in the footer
-    const upd = $('updated');
-    if (C.loader.lastServerPoll) {
-      if (paused) {
-        upd.textContent = `Timetable from ${C.hhmm(C.loader.lastServerPoll)}, live updates resume ${C.hhmm(C.loader.pausedUntil)}`;
-        upd.classList.add('warn');
-      } else {
-        upd.textContent = (age >= C.CFG.staleWarnSec ? 'Updating… last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
-        upd.classList.toggle('warn', age >= C.CFG.staleWarnSec);
-      }
-    }
+    freshness(now, age, paused);
 
     const word = $('stateWord'), line = $('stateLine');
-    const count = $('count'), label = $('countLabel'), value = $('countValue'), detail = $('countDetail');
+    const count = $('count'), label = $('countLabel'), value = $('countValue'), at = $('countAt');
+    const note = $('note');
     $('retry').classList.add('hidden');
-    $('stripPanel').classList.remove('hidden');
+    $('more').classList.remove('hidden');
     count.classList.remove('hidden');
+    line.classList.add('hidden');
+    note.classList.add('hidden');
+    $('intro').classList.toggle('hidden', seenIntro);
 
     if (state.kind === 'unavailable') {
       word.textContent = 'Status unavailable';
-      line.textContent = `Train data hasn't updated for ${C.minutesWord(state.dataAgeSec)}. Crossing status can't be predicted.`;
-      label.textContent = ''; value.textContent = '';
-      detail.innerHTML = '<small>Use the lights and barrier at the crossing. This page will update by itself when the data comes back.</small>';
+      line.textContent = `Train data hasn't updated for ${C.minutesWord(state.dataAgeSec)}, so the crossing can't be predicted. Use the lights and barrier at the crossing. This page will update by itself when the data comes back.`;
+      line.classList.remove('hidden');
+      count.classList.add('hidden');
       $('retry').classList.remove('hidden');
-      $('stripPanel').classList.add('hidden');
-      $('trains').classList.add('hidden');
+      $('more').classList.add('hidden');
+      $('detail').classList.add('hidden');
       announce('Status unavailable');
       return;
     }
@@ -279,41 +342,49 @@
     const c = state.closure;
     if (state.kind === 'closed') {
       word.textContent = 'Closed';
-      const n = c.trains.length;
-      if (state.inLift) {
-        line.textContent = 'Another train is close behind. The barrier may lift briefly, or stay down.';
-      } else if (state.upcomingLift) {
-        line.textContent = `Expected closed for ${n} trains. The barrier may lift briefly in between.`;
-      } else {
-        line.textContent = n === 1 ? 'Expected closed for 1 train.' : `Expected closed for ${n} trains.`;
-      }
       label.textContent = 'Expected to open in';
-      value.textContent = C.countdown(state.secondsToChange);
-      detail.innerHTML = `at ${C.hhmm(c.openAt)}` + (state.nextAfter ? `<small>then open ${Math.max(1, Math.round((state.nextAfter.closeAt - c.openAt) / 60000))} min</small>` : '');
+      setCount(state.secondsToChange);
+      at.textContent = `at ${C.hhmm(c.openAt)}`;
+      if (state.inLift) {
+        note.textContent = 'Barrier may lift briefly about now — don\'t rely on it';
+        note.classList.remove('hidden');
+      } else if (state.upcomingLift) {
+        note.textContent = `Possible brief lift ~${C.hhmm(state.upcomingLift.at)} — don't rely on it`;
+        note.classList.remove('hidden');
+      }
       $('trainsHeading').textContent = 'Trains in this closure';
     } else if (state.kind === 'closing') {
       word.textContent = 'Closing';
-      line.textContent = 'Expected to close within a minute.';
       label.textContent = 'Expected to close in';
-      value.textContent = C.countdown(state.secondsToChange);
-      detail.innerHTML = `until ${C.hhmm(c.openAt)}<small>for ${Math.max(1, Math.round(c.durationSec / 60))} min</small>`;
+      setCount(state.secondsToChange);
+      at.textContent = `until ${C.hhmm(c.openAt)}`;
       $('trainsHeading').textContent = 'Trains in this closure';
     } else if (c) {
       word.textContent = 'Open';
-      line.textContent = `No closure expected for another ${C.minutesWord(state.secondsToChange)}.`;
       label.textContent = 'Expected to close in';
-      value.textContent = C.countdown(state.secondsToChange);
-      detail.innerHTML = `at ${C.hhmm(c.closeAt)}<small>for ${Math.max(1, Math.round(c.durationSec / 60))} min</small>`;
+      setCount(state.secondsToChange);
+      at.textContent = `at ${C.hhmm(c.closeAt)}`;
       $('trainsHeading').textContent = 'Trains in the next closure';
     } else {
       word.textContent = 'Open';
       line.textContent = 'No closure expected in the next 90 minutes.';
+      line.classList.remove('hidden');
       count.classList.add('hidden');
     }
 
-    renderStrip(C.buildPeriods(closures, now), closures, now, state);
-    renderTrains(c, now);
+    if (expanded) {
+      $('detail').classList.remove('hidden');
+      renderStrip(C.buildPeriods(closures, now), closures, now);
+      renderTrains(c, now);
+    }
     announce(word.textContent);
+  }
+
+  function setCount(secs) {
+    const v = $('countValue');
+    const text = C.countdown(secs);
+    v.textContent = text;
+    v.classList.toggle('long', text.length >= 5);
   }
 
   function announce(text) {
@@ -321,13 +392,7 @@
   }
 
   async function refresh() {
-    try {
-      await C.loader.fetch();
-      fetchFailures = 0;
-    } catch (e) {
-      fetchFailures++;
-      console.warn('fetch failed', e);
-    }
+    try { await C.loader.fetch(); } catch (e) { console.warn('fetch failed', e); }
     render();
   }
 

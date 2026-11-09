@@ -153,7 +153,7 @@ window.Crossing = (function () {
       // inside a merged closure, are we in a gap where the barrier may lift?
       let lift = null;
       for (const l of current.lifts) {
-        if (l.at <= now && now < l.beforeTrain.closeAt) { lift = l; break; }
+        if (l.at <= now && now < l.beforeTrain.minCloseAt) { lift = l; break; }
       }
       const upcomingLift = current.lifts.find(l => l.at > now) || null;
       return {

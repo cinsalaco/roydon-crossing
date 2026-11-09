@@ -30,10 +30,13 @@
   .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   .strip { display: flex; height: 14px; border-radius: 3px; overflow: hidden; gap: 2px; }
   .strip div { min-width: 2px; }
+  .hidden { display: none !important; }
   .strip .open { background: var(--green); }
   .strip .closed { background: var(--red); }
   .strip .closed.now { background: #7A1211; }
   .period.closed.now .dot, .period.closed.now .line, .period.closed.now .seg { background: #7A1211; }
+  .strip-lift { position: absolute; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); transform: translateX(-50%); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); pointer-events: none; }
+  .legend i.dot { border-radius: 50%; background: var(--amber); }
   .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.6; }
 
   .timeline { display: flex; flex-direction: column; margin-top: 28px; }
@@ -80,8 +83,11 @@
   </div>
 
   <section class="glance" aria-label="At a glance">
-    <div class="glance-head"><span style="opacity:0.7">At a glance</span><span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span></span></div>
-    <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+    <div class="glance-head"><span style="opacity:0.7">At a glance</span><span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span></div>
+    <div style="position: relative">
+      <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+      <div id="stripLifts"></div>
+    </div>
     <div class="strip-axis" id="stripAxis"></div>
   </section>
 
@@ -112,7 +118,7 @@
   }
 
   function liftNote(l) {
-    return `<div class="lift-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg><span>Barrier may lift briefly around ${C.hhmm(l.at)}</span></div>`;
+    return `<div class="lift-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg><span>Possible brief lift ~${C.hhmm(l.at)} — don't rely on it</span></div>`;
   }
 
   function periodHtml(p, now, isFirst) {
@@ -159,6 +165,11 @@
     }
 
     $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
+    const windowMs = C.CFG.windowMin * 60000;
+    const lifts = [];
+    for (const c of closures) for (const l of c.lifts) if (l.at > now && l.at - now < windowMs) lifts.push(l);
+    $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / windowMs).toFixed(1)}%"></span>`).join('');
+    $('legendLift').classList.toggle('hidden', lifts.length === 0);
     const axis = ['now'];
     for (let m = 30; m <= 90; m += 30) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
