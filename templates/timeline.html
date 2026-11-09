@@ -33,8 +33,8 @@
   .hidden { display: none !important; }
   .strip .open { background: var(--green); }
   .strip .closed { background: var(--red); }
-  .strip .closed.now { background: #7A1211; }
-  .period.closed.now .dot, .period.closed.now .line, .period.closed.now .seg { background: #7A1211; }
+  .strip .closed.now { background: var(--red); }   /* one red: the black tick already marks now */
+  .period.closed.now .dot, .period.closed.now .line, .period.closed.now .seg { background: var(--red); }
   .strip-lift { position: absolute; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); transform: translateX(-50%); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); pointer-events: none; }
   .legend i.dot { border-radius: 50%; background: var(--amber); }
   .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.6; }
