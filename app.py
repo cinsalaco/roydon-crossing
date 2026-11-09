@@ -58,7 +58,7 @@ DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspa
 OBS_FILE = os.path.join(DATA_DIR, 'observations.json')
 CACHE_FILE = os.path.join(DATA_DIR, 'last_timetable.json')
 
-SERVE_WINDOW_MINUTES = 90       # what /api/trains/realtime returns
+SERVE_WINDOW_MINUTES = WINDOW_MINUTES   # serve everything we fetched; each page picks its own window (30/90/180)
 SERVE_PAST_MINUTES = 5          # keep very recent trains so the UI can finish a closure
 
 LONDON = ZoneInfo('Europe/London')
