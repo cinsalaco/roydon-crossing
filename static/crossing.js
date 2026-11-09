@@ -22,12 +22,12 @@ window.Crossing = (function () {
     // Barriers always go down before a stopping train *arrives*, so the lead is measured
     // from arrival for stopping trains and from the pass time for passing ones.
     leadSec: 120,        // barrier down this long before the RTT arrival/pass time (logged 92-128s)
-    trailSec: 20,        // ...and back up this long after the train clears the road (logged 11-30s)
+    trailSec: 15,        // ...and fully up this long after the train clears the road (logged 11-30s, Carmelo: 12-15s)
     roadAfterPassSec: 20,
     roadAfterDepSec: 30,
     roadBeforeArrSec: 15,
     mergeGapSec: 90,     // if it would be up for less than this, it stays down (one closure)
-    liftNoteMinSec: 30,  // inside a merged closure, note a possible lift if the gap is at least this
+    liftNoteMinSec: 15,  // inside a merged closure, note a possible lift if the gap is at least this (observed ~30s lifts at predicted gaps of 20-50s)
     closingSec: 60,      // "Closing" state once a closure is this close
     windowMin: 90,       // how far ahead the pages look
     staleWarnSec: 120,   // header shows "updating…" after this long without a successful poll
