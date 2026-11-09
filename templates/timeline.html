@@ -90,9 +90,9 @@
   </div>
 
   <section class="glance" aria-label="At a glance">
-    <div class="glance-head"><span style="opacity:0.7">At a glance</span><span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span></div>
+    <div class="glance-head"><span style="opacity:0.7">Next 30 min</span><span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span></div>
     <div class="strip-wrap">
-      <div class="strip" id="strip" role="img" aria-label="Open and closed periods"></div>
+      <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 30 minutes"></div>
       <div id="stripLifts"></div>
     </div>
     <div class="strip-axis" id="stripAxis"></div>
@@ -217,17 +217,17 @@
     }
     const closures = C.buildClosures(C.loader.trains);
     const periods = C.buildPeriods(closures, now, windowMin);
-    const windowMs = windowMin * 60000;
 
-    // at a glance
-    $('strip').innerHTML = periods.map(p => `<div class="${p.kind}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
+    // at a glance: always the next 30 minutes, whatever the list below covers
+    const GLANCE_MIN = 30, glanceMs = GLANCE_MIN * 60000;
+    const glance = C.buildPeriods(closures, now, GLANCE_MIN);
+    $('strip').innerHTML = glance.map(p => `<div class="${p.kind}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
     const lifts = [];
-    for (const c of closures) for (const l of c.lifts) if (l.at > now && l.at - now < windowMs) lifts.push(l);
-    $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / windowMs).toFixed(1)}%"></span>`).join('');
+    for (const c of closures) for (const l of c.lifts) if (l.at > now && l.at - now < glanceMs) lifts.push(l);
+    $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / glanceMs).toFixed(1)}%"></span>`).join('');
     $('legendLift').classList.toggle('hidden', lifts.length === 0);
     const axis = ['now'];
-    const step = windowMin / 3;
-    for (let m = step; m <= windowMin; m += step) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
+    for (let m = 10; m <= GLANCE_MIN; m += 10) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
 
     if (age != null && age >= C.CFG.staleFailSec && (!paused || age >= C.CFG.windowMin * 60)) {
