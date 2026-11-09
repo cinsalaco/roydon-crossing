@@ -81,7 +81,9 @@
   .note .answers { display: flex; gap: 10px; }
   .note .answers button { flex: 1; min-height: 44px; border: 2px solid #1a1200; border-radius: 9px; background: transparent; color: #1a1200; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
   .note .answers button.yes { background: #1a1200; color: #FFD27A; }
-  .note .thanks { font-size: 15px; font-weight: 600; }
+  .note .thanks { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .note .retry-send { min-height: 40px; padding: 0 14px; border: 2px solid #1a1200; border-radius: 8px; background: transparent; color: #1a1200; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  body.state-closing .note .retry-send { border-color: #FFD27A; color: #FFD27A; }
   body.state-closing .note { background: #1a1200; color: #FFD27A; }
   body.state-closing .note .note-text::before { background: #FFD27A; }
   body.state-closing .note .answers button { border-color: #FFD27A; color: #FFD27A; }
@@ -247,6 +249,7 @@
   // ---- the amber lift note: countdown, then a question while the window is open ----
   let reportedFor = null;   // lift.at (ms) we've already reported on, so the buttons only show once per lift
   let reportBusy = false;
+  let pendingSend = null;   // { event, at, lift } while a report is in flight or awaiting retry
   function renderNote(state, now) {
     const note = $('note');
     const lift = state.inLift || state.upcomingLift;
@@ -255,9 +258,10 @@
     const answered = reportedFor === lift.at.getTime();
     if (state.inLift) {
       $('noteText').innerHTML = 'Barrier <b>may be up now</b> · for under 30 s';
-      $('noteAsk').classList.toggle('hidden', answered);
-      $('noteAnswers').classList.toggle('hidden', answered);
-      $('noteThanks').classList.toggle('hidden', !answered);
+      const busy = reportBusy || !!pendingSend;
+      $('noteAsk').classList.toggle('hidden', answered || busy);
+      $('noteAnswers').classList.toggle('hidden', answered || busy);
+      $('noteThanks').classList.toggle('hidden', !(answered || busy));
     } else {
       const secs = Math.max(0, Math.round((lift.at - now) / 1000));
       $('noteText').innerHTML = `May lift in <b>${C.countdown(secs)}</b> · for under 30 s`;
@@ -273,16 +277,42 @@
     const closures = C.buildClosures(C.loader.trains);
     const state = C.stateAt(closures, now, C.loader.dataAgeSec(now), C.loader.pausedUntil && C.loader.pausedUntil > now);
     const lift = state.inLift || state.upcomingLift;
-    try {
-      await C.report(event, 'report: lift', now);
+    pendingSend = { event, at: now, lift };
+    // immediate feedback, before the network has done anything
+    $('noteAsk').classList.add('hidden');
+    $('noteAnswers').classList.add('hidden');
+    $('noteThanks').textContent = 'Sending…';
+    $('noteThanks').classList.remove('hidden');
+    let ok = false;
+    for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+      try { await C.report(event, 'report: lift', now, 8000); ok = true; }
+      catch (e) { if (attempt === 0) await new Promise(r => setTimeout(r, 2500)); }
+    }
+    if (ok) {
       reportedFor = lift ? lift.at.getTime() : now.getTime();
+      pendingSend = null;
       $('noteThanks').textContent = event === 'up' ? 'Thanks — logged as open.' : 'Thanks — logged as still closed.';
-    } catch (e) {
-      $('noteThanks').textContent = 'Sorry, that didn\'t send.';
-      reportedFor = lift ? lift.at.getTime() : now.getTime();
+    } else {
+      // keep the tap time; let them try again without re-answering
+      $('noteThanks').innerHTML = 'Couldn\'t send — poor signal. <button type="button" class="retry-send" id="retrySend">Try again</button>';
+      $('retrySend').addEventListener('click', resendReport);
     }
     reportBusy = false;
-    render();
+  }
+  async function resendReport() {
+    if (!pendingSend || reportBusy) return;
+    reportBusy = true;
+    $('noteThanks').textContent = 'Sending…';
+    try {
+      await C.report(pendingSend.event, 'report: lift', pendingSend.at, 8000);
+      reportedFor = pendingSend.lift ? pendingSend.lift.at.getTime() : pendingSend.at.getTime();
+      $('noteThanks').textContent = pendingSend.event === 'up' ? 'Thanks — logged as open.' : 'Thanks — logged as still closed.';
+      pendingSend = null;
+    } catch (e) {
+      $('noteThanks').innerHTML = 'Still no signal. <button type="button" class="retry-send" id="retrySend">Try again</button>';
+      $('retrySend').addEventListener('click', resendReport);
+    }
+    reportBusy = false;
   }
   $('reportOpen').addEventListener('click', () => sendReport('up'));
   $('reportClosed').addEventListener('click', () => sendReport('down'));

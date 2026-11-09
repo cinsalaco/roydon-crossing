@@ -255,12 +255,18 @@ window.Crossing = (function () {
   }
 
   // Post an observation (used by the log page and the home page's lift report).
-  async function report(event, note, now) {
+  // `at` is the moment of the tap, kept even if the send is retried later.
+  // Gives up after timeoutMs so a dead connection shows as a failure, not a hang.
+  async function report(event, note, now, timeoutMs) {
     now = now || new Date();
     const obs = { event, at: now.toISOString(), note: note || '', snapshot: snapshot(now) };
-    const r = await fetch('/api/observations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obs) });
-    if (!r.ok) throw new Error('report failed ' + r.status);
-    return r.json();
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs || 8000);
+    try {
+      const r = await fetch('/api/observations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obs), signal: ctl.signal });
+      if (!r.ok) throw new Error('report failed ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(timer); }
   }
 
   return { CFG, parseIso, normaliseTrain, buildClosures, buildPeriods, stateAt,
