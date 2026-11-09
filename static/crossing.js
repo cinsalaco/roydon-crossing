@@ -25,7 +25,7 @@ window.Crossing = (function () {
     minLeadSec: 45,      // after a brief lift the barrier can come down again as late as this before the next train (logged 9 Nov: ~45-60s)
     trailSec: 15,        // ...and fully up this long after the train clears the road (logged 11-30s, Carmelo: 12-15s)
     roadAfterPassSec: 20,
-    roadAfterDepSec: 30,
+    roadAfterDepSec: 40,  // barrier-up logged at departure +55/+57s for stopping trains towards Harlow (6 and 9 Nov)
     roadBeforeArrSec: 15,
     mergeGapSec: 90,     // if it would be up for less than this, it stays down (one closure)
     liftNoteMinSec: 15,  // inside a merged closure, note a possible lift if the gap is at least this (observed ~30s lifts at predicted gaps of 20-50s)
