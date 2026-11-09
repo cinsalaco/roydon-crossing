@@ -250,25 +250,31 @@
   let reportedFor = null;   // lift.at (ms) we've already reported on, so the buttons only show once per lift
   let reportBusy = false;
   let pendingSend = null;   // { event, at, lift } while a report is in flight or awaiting retry
+  const ASK_BEFORE_SEC = 30;   // predictions are ±20-30s, so ask a little before the predicted lift
+  let saidClosedFor = null;    // lift.at (ms) for which 'still closed' was answered; allows a later 'open now'
   function renderNote(state, now) {
     const note = $('note');
     const lift = state.inLift || state.upcomingLift;
     if (!lift) return;
     note.classList.remove('hidden');
-    const answered = reportedFor === lift.at.getTime();
-    if (state.inLift) {
-      $('noteText').innerHTML = 'Barrier <b>may be up now</b> · for under 30 s';
-      const busy = reportBusy || !!pendingSend;
-      $('noteAsk').classList.toggle('hidden', answered || busy);
-      $('noteAnswers').classList.toggle('hidden', answered || busy);
-      $('noteThanks').classList.toggle('hidden', !(answered || busy));
-    } else {
-      const secs = Math.max(0, Math.round((lift.at - now) / 1000));
-      $('noteText').innerHTML = `May lift in <b>${C.countdown(secs)}</b> · for under 30 s`;
-      $('noteAsk').classList.add('hidden');
-      $('noteAnswers').classList.add('hidden');
-      $('noteThanks').classList.add('hidden');
-    }
+    const key = lift.at.getTime();
+    const secs = Math.max(0, Math.round((lift.at - now) / 1000));
+    const asking = state.inLift || secs <= ASK_BEFORE_SEC;
+    const answered = reportedFor === key;
+    const saidClosed = saidClosedFor === key && !answered;
+    const busy = reportBusy || !!pendingSend;
+
+    if (state.inLift) $('noteText').innerHTML = 'Barrier <b>may be up now</b> · for under 30 s';
+    else if (asking) $('noteText').innerHTML = 'May lift <b>any moment</b> · for under 30 s';
+    else $('noteText').innerHTML = `May lift in <b>${C.countdown(secs)}</b> · for under 30 s`;
+
+    const showQ = asking && !answered && !busy;
+    $('noteAsk').textContent = saidClosed ? 'Tap when it opens — your answers help improve the predictions.' : 'Is it open yet? Your answer helps improve the predictions.';
+    $('noteAsk').classList.toggle('hidden', !showQ);
+    $('noteAnswers').classList.toggle('hidden', !showQ);
+    $('reportClosed').classList.toggle('hidden', saidClosed);
+    $('reportOpen').textContent = saidClosed ? "It's open now" : "Yes, it's open";
+    $('noteThanks').classList.toggle('hidden', !(answered || busy));
   }
   async function sendReport(event) {
     if (reportBusy) return;
@@ -289,9 +295,11 @@
       catch (e) { if (attempt === 0) await new Promise(r => setTimeout(r, 2500)); }
     }
     if (ok) {
-      reportedFor = lift ? lift.at.getTime() : now.getTime();
+      const key = lift ? lift.at.getTime() : now.getTime();
+      if (event === 'up') reportedFor = key; else saidClosedFor = key;
       pendingSend = null;
       $('noteThanks').textContent = event === 'up' ? 'Thanks — logged as open.' : 'Thanks — logged as still closed.';
+      if (event === 'down') setTimeout(render, 2000);   // show the 'It's open now' button after the thanks
     } else {
       // keep the tap time; let them try again without re-answering
       $('noteThanks').innerHTML = 'Couldn\'t send — poor signal. <button type="button" class="retry-send" id="retrySend">Try again</button>';
@@ -305,8 +313,10 @@
     $('noteThanks').textContent = 'Sending…';
     try {
       await C.report(pendingSend.event, 'report: lift', pendingSend.at, 8000);
-      reportedFor = pendingSend.lift ? pendingSend.lift.at.getTime() : pendingSend.at.getTime();
+      const key = pendingSend.lift ? pendingSend.lift.at.getTime() : pendingSend.at.getTime();
+      if (pendingSend.event === 'up') reportedFor = key; else saidClosedFor = key;
       $('noteThanks').textContent = pendingSend.event === 'up' ? 'Thanks — logged as open.' : 'Thanks — logged as still closed.';
+      if (pendingSend.event === 'down') setTimeout(render, 2000);
       pendingSend = null;
     } catch (e) {
       $('noteThanks').innerHTML = 'Still no signal. <button type="button" class="retry-send" id="retrySend">Try again</button>';
