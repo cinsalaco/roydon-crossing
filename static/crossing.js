@@ -114,8 +114,8 @@ window.Crossing = (function () {
   }
 
   // Alternating open/closed periods covering [now, now + window].
-  function buildPeriods(closures, now) {
-    const end = new Date(now.getTime() + CFG.windowMin * 60000);
+  function buildPeriods(closures, now, windowMin) {
+    const end = new Date(now.getTime() + (windowMin || CFG.windowMin) * 60000);
     const periods = [];
     let cursor = now;
     for (const c of closures) {
@@ -123,8 +123,9 @@ window.Crossing = (function () {
       if (c.closeAt > end) break;
       const start = c.closeAt > cursor ? c.closeAt : cursor;
       if (start > cursor) periods.push({ kind: 'open', start: cursor, end: start });
-      periods.push({ kind: 'closed', start, end: c.openAt, closure: c });
-      cursor = c.openAt;
+      const stop = c.openAt < end ? c.openAt : end;   // clip a closure that runs past the window
+      periods.push({ kind: 'closed', start, end: stop, closure: c });
+      cursor = stop;
     }
     if (cursor < end) periods.push({ kind: 'open', start: cursor, end });
     for (const p of periods) p.seconds = Math.round((p.end - p.start) / 1000);

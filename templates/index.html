@@ -169,14 +169,14 @@
   </button>
 
   <section class="detail hidden" id="detail">
-    <section class="strip-panel" id="stripPanel" aria-label="Next 90 minutes">
+    <section class="strip-panel" id="stripPanel" aria-label="Next 30 minutes">
       <div class="strip-head">
-        <span>Next 90 min</span>
+        <span>Next 30 min</span>
         <span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span>
       </div>
       <div class="strip-wrap">
         <div class="strip-next hidden" id="stripMarker"></div>
-        <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+        <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 30 minutes"></div>
         <div id="stripLifts"></div>
         <div class="strip-now" aria-hidden="true"></div>
       </div>
@@ -204,6 +204,7 @@
   const C = window.Crossing;
   const $ = id => document.getElementById(id);
   const THEME = { open: '#0E6B3A', closing: '#F0A202', closed: '#B81F1E', unavailable: '#4A4F57' };
+  const STRIP_MIN = 30;   // the home strip covers 30 minutes; the timeline page covers 90
   let lastAnnounced = '';
   let expanded = false;   // always starts collapsed
 
@@ -255,7 +256,7 @@
   }
 
   function renderStrip(periods, closures, now) {
-    const windowMs = C.CFG.windowMin * 60000;
+    const windowMs = STRIP_MIN * 60000;
     $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
     // marker for the next change of state
     const m = $('stripMarker');
@@ -277,7 +278,7 @@
     $('legendLift').classList.toggle('hidden', lifts.length === 0);
 
     const axis = ['now'];
-    for (let k = 30; k <= 90; k += 30) axis.push(C.hhmm(new Date(now.getTime() + k * 60000)));
+    for (let k = 10; k <= STRIP_MIN; k += 10) axis.push(C.hhmm(new Date(now.getTime() + k * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
     // "Next: closed 22:24 to 22:27, then open until 22:32"
     let text = '';
@@ -287,7 +288,7 @@
       text = `Next: ${a.kind} ${C.hhmm(a.start)} to ${C.hhmm(a.end)}`;
       if (b) text += `, then ${b.kind} until ${C.hhmm(b.end)}`;
     } else if (periods[idx] && periods[idx].kind === 'open') {
-      text = 'No closures expected in the next 90 minutes';
+      text = `No closures expected in the next ${STRIP_MIN} minutes`;
     }
     $('stripNext').textContent = text;
   }
@@ -374,7 +375,7 @@
 
     if (expanded) {
       $('detail').classList.remove('hidden');
-      renderStrip(C.buildPeriods(closures, now), closures, now);
+      renderStrip(C.buildPeriods(closures, now, STRIP_MIN), closures, now);
       renderTrains(c, now);
     }
     announce(word.textContent);
