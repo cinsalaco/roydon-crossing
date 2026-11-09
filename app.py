@@ -700,6 +700,7 @@ def reconcile_forever():
             reconcile_observations()
         except Exception as exc:
             log.error('Nightly reconcile failed: %s', exc)
+        dump_observations_to_log()
 
 
 @app.route('/api/observations/reconcile', methods=['POST'])

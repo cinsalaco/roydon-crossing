@@ -22,6 +22,7 @@ window.Crossing = (function () {
     // Barriers always go down before a stopping train *arrives*, so the lead is measured
     // from arrival for stopping trains and from the pass time for passing ones.
     leadSec: 120,        // barrier down this long before the RTT arrival/pass time (logged 92-128s)
+    minLeadSec: 45,      // after a brief lift the barrier can come down again as late as this before the next train (logged 9 Nov: ~45-60s)
     trailSec: 15,        // ...and fully up this long after the train clears the road (logged 11-30s, Carmelo: 12-15s)
     roadAfterPassSec: 20,
     roadAfterDepSec: 30,
@@ -84,6 +85,7 @@ window.Crossing = (function () {
       early: diffMin < 0 ? -diffMin : 0,
       passed: !!t.actual,
       closeAt: new Date(downFrom.getTime() - CFG.leadSec * 1000),
+      minCloseAt: new Date(downFrom.getTime() - CFG.minLeadSec * 1000),   // latest it could re-close after a brief lift
       openAt: new Date(roadAt + CFG.trailSec * 1000),
     };
   }
@@ -95,10 +97,11 @@ window.Crossing = (function () {
     for (const tr of sorted) {
       const last = closures[closures.length - 1];
       if (last && (tr.closeAt - last.openAt) / 1000 < CFG.mergeGapSec) {
-        // stays down: extend the closure
-        const gapSec = (tr.closeAt - last.openAt) / 1000;
-        if (gapSec >= CFG.liftNoteMinSec) {
-          last.lifts.push({ at: new Date(last.openAt), seconds: Math.round(gapSec), beforeTrain: tr });
+        // stays down: extend the closure. But if the signaller *could* lift it and
+        // still have the minimum lead for the next train, note a possible brief lift.
+        const liftSec = (tr.minCloseAt - last.openAt) / 1000;
+        if (liftSec >= CFG.liftNoteMinSec) {
+          last.lifts.push({ at: new Date(last.openAt), seconds: Math.round(liftSec), beforeTrain: tr });
         }
         last.trains.push(tr);
         if (tr.openAt > last.openAt) last.openAt = tr.openAt;
