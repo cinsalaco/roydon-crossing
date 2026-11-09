@@ -73,8 +73,8 @@
   .count-at { font-size: clamp(20px, 5.6vw, 22px); font-weight: 600; margin-top: 10px; }
 
   /* The one piece of uncertainty we show, only when it exists. */
-  .note { display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; margin-top: clamp(18px, 3.5vh, 28px); padding: 9px 13px 9px 11px; border-radius: 10px; background: var(--amber); color: #1a1200; font-size: 15px; font-weight: 700; line-height: 1.25; }
-  .note::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #1a1200; flex-shrink: 0; }
+  .note { display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; margin-top: clamp(18px, 3.5vh, 28px); padding: 11px 15px 11px 13px; border-radius: 10px; background: var(--amber); color: #1a1200; font-size: 17px; font-weight: 700; line-height: 1.3; }
+  .note::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: #1a1200; flex-shrink: 0; }
   body.state-closing .note { background: #1a1200; color: #FFD27A; }
   body.state-closing .note::before { background: #FFD27A; }
 
@@ -237,7 +237,7 @@
   }
 
   function liftNote(l) {
-    return `<div class="lift-note">Possible brief lift ~${C.hhmm(l.at)} — don't rely on it</div>`;
+    return `<div class="lift-note">May lift ~${C.hhmm(l.at)} for under 30 s — don't rely on it</div>`;
   }
 
   function renderTrains(closure, now) {
@@ -274,7 +274,7 @@
     for (const c of closures) for (const l of c.lifts) {
       if (l.at > now && l.at - now < windowMs) lifts.push(l);
     }
-    $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / windowMs).toFixed(1)}%" title="Possible brief lift around ${C.hhmm(l.at)}"></span>`).join('');
+    $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / windowMs).toFixed(1)}%" title="May lift around ${C.hhmm(l.at)} for under 30 s"></span>`).join('');
     $('legendLift').classList.toggle('hidden', lifts.length === 0);
 
     const axis = ['now'];
@@ -347,10 +347,10 @@
       setCount(state.secondsToChange);
       at.textContent = `at ${C.hhmm(c.openAt)}`;
       if (state.inLift) {
-        note.textContent = 'Barrier may lift briefly about now — don\'t rely on it';
+        note.textContent = 'May lift about now for under 30 s — don\'t rely on it';
         note.classList.remove('hidden');
       } else if (state.upcomingLift) {
-        note.textContent = `Possible brief lift ~${C.hhmm(state.upcomingLift.at)} — don't rely on it`;
+        note.textContent = `May lift ~${C.hhmm(state.upcomingLift.at)} for under 30 s — don't rely on it`;
         note.classList.remove('hidden');
       }
       $('trainsHeading').textContent = 'Trains in this closure';
