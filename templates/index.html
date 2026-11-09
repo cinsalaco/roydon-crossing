@@ -105,7 +105,11 @@
 
   /* Expanded detail: strip, next window, trains, links. */
   .detail { margin-top: 18px; }
-  .strip-panel { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 12px; border-radius: 12px; background: var(--panel); color: var(--ink); }
+  .strip-panel { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 12px; border-radius: 12px; background: var(--panel); color: var(--ink); text-decoration: none; -webkit-tap-highlight-color: transparent; }
+  .strip-panel:active { background: #e4e6ea; }
+  .strip-panel:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .strip-title { display: inline-flex; align-items: center; gap: 2px; }
+  .strip-title svg { opacity: 0.6; }
   .strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
   .legend { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; font-size: 13px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -144,6 +148,7 @@
   .links { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 18px; font-size: 15px; font-weight: 600; }
   .links a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: inherit; text-decoration: none; }
   .links a.quiet { font-weight: 500; opacity: 0.85; text-decoration: underline; text-underline-offset: 3px; }
+  .links .hint { font-size: 13px; font-weight: 500; opacity: 0.7; text-align: right; }
 
   .retry { margin-top: 32px; align-self: flex-start; min-height: 48px; padding: 0 22px; border: 2px solid rgba(255,255,255,0.7); border-radius: 10px; background: transparent; color: inherit; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
   .hidden { display: none !important; }
@@ -188,9 +193,9 @@
   </button>
 
   <section class="detail hidden" id="detail">
-    <section class="strip-panel" id="stripPanel" aria-label="Next 30 minutes">
+    <a href="/timeline" class="strip-panel" id="stripPanel" aria-label="Next 30 minutes — open the full timeline">
       <div class="strip-head">
-        <span>Next 30 min</span>
+        <span class="strip-title">Next 30 min <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
         <span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span>
       </div>
       <div class="strip-wrap">
@@ -201,7 +206,7 @@
       </div>
       <div class="strip-axis" id="stripAxis"></div>
       <div class="strip-sentence" id="stripNext"></div>
-    </section>
+    </a>
 
     <section class="trains" id="trains">
       <h2><span id="trainsHeading">Trains in the next closure</span><span id="trainsCount"></span></h2>
@@ -210,7 +215,7 @@
 
     <div class="links">
       <a href="/log" class="quiet">Log what I see</a>
-      <a href="/timeline">Full timeline <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <span class="hint">Tap the strip for the full 90 minutes</span>
     </div>
   </section>
 
