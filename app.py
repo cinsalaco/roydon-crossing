@@ -63,6 +63,11 @@ SERVE_PAST_MINUTES = 5          # keep very recent trains so the UI can finish a
 
 LONDON = ZoneInfo('Europe/London')
 
+# Build identity, shown discreetly on the timeline page so you can tell which
+# version is live. Railway sets RAILWAY_GIT_COMMIT_SHA on every deployment.
+STARTED_AT = datetime.now(LONDON)
+VERSION = (os.environ.get('RAILWAY_GIT_COMMIT_SHA') or os.environ.get('GIT_SHA') or 'dev')[:7]
+
 # Codes the front-end looks for to decide "to London"; we emit TIPLOC-style
 # long codes (LIVST, BSHPSFD, ...) exactly as the old backend did.
 STOPPING_DISPLAY = {'CALL', 'STARTS', 'TERMINATES'}
@@ -752,6 +757,8 @@ def get_realtime_trains():
             'count': len(upcoming),
             'timestamp': now.isoformat(),
             'feed': 'realtimetrains',
+            'version': VERSION,
+            'started_at': STARTED_AT.isoformat(),
             'feed_connected': feed_ok,
             'darwin_connected': feed_ok,        # kept for older front-end builds
             'last_poll': last_poll_at.isoformat() if last_poll_at else None,

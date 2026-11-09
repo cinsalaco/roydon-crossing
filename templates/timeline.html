@@ -68,6 +68,7 @@
   .lift-note { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 6px 0; border-radius: 6px; background: rgba(224,138,0,0.2); color: #5a3a00; font-size: 13px; font-weight: 600; }
   .empty, .footer { font-size: 13px; opacity: 0.75; line-height: 1.4; margin-top: 24px; }
   .empty { font-size: 16px; opacity: 0.8; }
+  .version { font-size: 11px; opacity: 0.45; margin-top: 14px; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -87,6 +88,7 @@
   <section class="timeline" id="timeline"></section>
 
   <div class="footer">Estimated from live train data: the barrier goes down about 2 minutes before each train and lifts just after it. Always follow the lights and barrier at the crossing.</div>
+  <div class="version" id="version"></div>
 </main>
 
 <script src="/static/crossing.js"></script>
@@ -151,6 +153,10 @@
     }
     const closures = C.buildClosures(C.loader.trains);
     const periods = C.buildPeriods(closures, now);
+    if (C.loader.version) {
+      const d = C.loader.startedAt;
+      $('version').textContent = `Version ${C.loader.version}` + (d ? ` · live since ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${C.hhmm(d)}` : '');
+    }
 
     $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
     const axis = ['now'];

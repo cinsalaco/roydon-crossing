@@ -216,6 +216,8 @@ window.Crossing = (function () {
       this.lastGood = new Date();
       this.lastServerPoll = parseIso(data.last_poll);
       this.pausedUntil = parseIso(data.paused_until);
+      this.version = data.version || null;
+      this.startedAt = parseIso(data.started_at);
       return data;
     },
     // Seconds since the data was last known-good, from the server's own poll
