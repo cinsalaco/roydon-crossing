@@ -230,6 +230,39 @@ window.Crossing = (function () {
     },
   };
 
+
+  // What the model believed at `now`: stored with every logged observation so
+  // predictions can be scored later against RTT's recorded times.
+  function snapshot(now) {
+    const closures = buildClosures(loader.trains);
+    const st = stateAt(closures, now, loader.dataAgeSec(now));
+    const c = st.closure;
+    const nearest = loader.trains.slice().sort((a, b) => Math.abs(a.at - now) - Math.abs(b.at - now))[0] || null;
+    return {
+      state: st.kind,
+      predicted_close: c ? c.closeAt.toISOString() : null,
+      predicted_open: c ? c.openAt.toISOString() : null,
+      closure_trains: c ? c.trains.map(t => `${t.headcode || ''} ${hhmm(t.at)} ${t.origin}>${t.destination}${t.stops ? ' stops' : ''}`).join('; ') : '',
+      nearest_train: nearest ? `${nearest.headcode || ''} ${hhmm(nearest.at)} ${nearest.origin}>${nearest.destination}${nearest.stops ? ' stops' : ' passes'}${nearest.toLondon ? ' toLondon' : ' fromLondon'}` : '',
+      nearest_train_at: nearest ? nearest.at.toISOString() : null,
+      nearest_train_rid: nearest ? nearest.rid : null,
+      nearest_train_stops: nearest ? nearest.stops : null,
+      nearest_train_to_london: nearest ? nearest.toLondon : null,
+      data_age_sec: loader.dataAgeSec(now),
+      cfg: { lead: CFG.leadSec, trail: CFG.trailSec, merge: CFG.mergeGapSec, minLead: CFG.minLeadSec,
+             roadPass: CFG.roadAfterPassSec, roadDep: CFG.roadAfterDepSec, roadArr: CFG.roadBeforeArrSec },
+    };
+  }
+
+  // Post an observation (used by the log page and the home page's lift report).
+  async function report(event, note, now) {
+    now = now || new Date();
+    const obs = { event, at: now.toISOString(), note: note || '', snapshot: snapshot(now) };
+    const r = await fetch('/api/observations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obs) });
+    if (!r.ok) throw new Error('report failed ' + r.status);
+    return r.json();
+  }
+
   return { CFG, parseIso, normaliseTrain, buildClosures, buildPeriods, stateAt,
-           hhmm, hhmmss, countdown, minutesWord, aboutMinutes, secondsWord, loader };
+           hhmm, hhmmss, countdown, minutesWord, aboutMinutes, secondsWord, loader, snapshot, report };
 })();

@@ -134,26 +134,7 @@
     const r = $('resetSession'); if (r) r.addEventListener('click', () => { session = { started: null, trains: 0, startedAt: null }; saveSession(); renderSession(); });
   }
 
-  function snapshot(now) {
-    const closures = C.buildClosures(C.loader.trains);
-    const st = C.stateAt(closures, now, C.loader.dataAgeSec(now));
-    const c = st.closure;
-    const nearest = C.loader.trains.slice().sort((a, b) => Math.abs(a.at - now) - Math.abs(b.at - now))[0] || null;
-    return {
-      state: st.kind,
-      predicted_close: c ? c.closeAt.toISOString() : null,
-      predicted_open: c ? c.openAt.toISOString() : null,
-      closure_trains: c ? c.trains.map(t => `${t.headcode || ''} ${C.hhmm(t.at)} ${t.origin}>${t.destination}${t.stops ? ' stops' : ''}`).join('; ') : '',
-      nearest_train: nearest ? `${nearest.headcode || ''} ${C.hhmm(nearest.at)} ${nearest.origin}>${nearest.destination}${nearest.stops ? ' stops' : ' passes'}${nearest.toLondon ? ' toLondon' : ' fromLondon'}` : '',
-      nearest_train_at: nearest ? nearest.at.toISOString() : null,
-      nearest_train_rid: nearest ? nearest.rid : null,
-      nearest_train_stops: nearest ? nearest.stops : null,
-      nearest_train_to_london: nearest ? nearest.toLondon : null,
-      data_age_sec: C.loader.dataAgeSec(now),
-      cfg: { lead: C.CFG.leadSec, trail: C.CFG.trailSec, merge: C.CFG.mergeGapSec,
-             roadPass: C.CFG.roadAfterPassSec, roadDep: C.CFG.roadAfterDepSec, roadArr: C.CFG.roadBeforeArrSec },
-    };
-  }
+  const snapshot = now => C.snapshot(now);
 
   function renderPrediction() {
     const now = new Date();
