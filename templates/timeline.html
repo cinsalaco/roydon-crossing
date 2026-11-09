@@ -42,8 +42,7 @@
   .strip-axis span:first-child { font-weight: 700; opacity: 1; }
 
   /* the list */
-  .cols { display: flex; gap: 14px; margin-top: 24px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; }
-  .cols span:first-child { width: 64px; text-align: center; flex-shrink: 0; }
+  #timeline { margin-top: 20px; }
   .period { display: flex; gap: 14px; padding: 14px 0 16px; border-top: 1px solid var(--rule); }
   .period:first-of-type { border-top-color: transparent; }
   .period.now { background: rgba(14,107,58,0.08); border-radius: 10px; margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-top-color: transparent; border-left: 4px solid var(--green); padding-left: 6px; }
@@ -98,7 +97,6 @@
     <div class="strip-axis" id="stripAxis"></div>
   </section>
 
-  <div class="cols" id="cols"><span>How long</span><span>Crossing</span></div>
   <section id="timeline"></section>
 
   <button type="button" class="more" id="more">Show the following 90 minutes <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -137,11 +135,8 @@
     return first.late ? first.late : first.early ? -first.early : 0;
   }
   function shiftLine(p, periods, i) {
-    if (p.kind === 'closed') {
-      const d = startShiftMin(p.closure);
-      if (d > 0) return `${d} min later than usual`;
-      if (d < 0) return `May start ${-d} min earlier than usual`;
-    } else {
+    // Said once, on the opening it shortens or lengthens; the closure's train row explains why.
+    if (p.kind === 'open') {
       const next = periods[i + 1];
       if (next && next.closure) {
         const d = startShiftMin(next.closure);
@@ -169,7 +164,8 @@
 
   function periodHtml(p, periods, i, now, closureIndex) {
     const isNow = i === 0 && p.start <= now;
-    const dur = Math.max(1, Math.round(p.seconds / 60));
+    // duration from the displayed (whole-minute) times, so '21:40 to 21:45' can never say '4 min'
+    const dur = Math.max(1, Math.floor(p.end.getTime() / 60000) - Math.floor(p.start.getTime() / 60000));
     const head = p.kind === 'open'
       ? (isNow ? `Open until ${C.hhmm(p.end)}` : `Open ${C.hhmm(p.start)} to ${C.hhmm(p.end)}`)
       : (isNow ? `Closed until ${C.hhmm(p.end)}` : `Closed ${C.hhmm(p.start)} to ${C.hhmm(p.end)}`);
@@ -192,9 +188,13 @@
         body += `<div class="trains">${trains}</div>`;
         if (closureIndex >= 2) body += `<button type="button" class="toggle" data-key="${k}" aria-expanded="true">Hide trains <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
       } else {
-        // collapsed: keep any lift note visible, it's period-level information
-        body += c.lifts.map(liftNote).join('');
-        body += `<button type="button" class="toggle" data-key="${k}" aria-expanded="false">${n} train${n === 1 ? '' : 's'} <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
+        // collapsed: one combined lift note, it's period-level information
+        if (c.lifts.length === 1) body += liftNote(c.lifts[0]);
+        else if (c.lifts.length > 1) {
+          const times = c.lifts.map(l => '~' + C.hhmm(l.at));
+          body += `<div class="lift-note">Brief lifts possible ${times.slice(0, -1).join(', ')} and ${times[times.length - 1]} · under 30 s each</div>`;
+        }
+        body += `<button type="button" class="toggle" data-key="${k}" aria-expanded="false">Show ${n} train${n === 1 ? '' : 's'} <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
       }
     }
     return `<div class="period ${p.kind}${isNow ? ' now' : ''}"><div class="dur"><div class="n">${dur}</div><div class="u">min</div></div><div class="body">${body}</div></div>`;
@@ -232,15 +232,15 @@
 
     if (age != null && age >= C.CFG.staleFailSec && (!paused || age >= C.CFG.windowMin * 60)) {
       $('timeline').innerHTML = `<div class="empty">Train data hasn't updated for ${C.minutesWord(age)}, so the timeline can't be predicted. Use the lights and barrier at the crossing.</div>`;
-      $('cols').classList.add('hidden'); $('more').classList.add('hidden'); lastSig = '';
+      $('more').classList.add('hidden'); lastSig = '';
       return;
     }
     if (!closures.length) {
       $('timeline').innerHTML = `<div class="empty">No closures expected in the next ${windowMin === 90 ? '90 minutes' : '3 hours'}.</div>`;
-      $('cols').classList.add('hidden'); $('more').classList.toggle('hidden', windowMin === 180 ? false : false); lastSig = '';
+      lastSig = '';
       return;
     }
-    $('cols').classList.remove('hidden'); $('more').classList.remove('hidden');
+    $('more').classList.remove('hidden');
 
     // Rebuild the list only when its structure changes; otherwise update the
     // relative times in place so nothing moves under the reader.
