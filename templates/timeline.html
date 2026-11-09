@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Crossing">
 <meta name="theme-color" content="#F2F3F5">
 <title>Roydon level crossing – next 90 minutes</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
@@ -12,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
 <style>
-  :root { --green: #0E6B3A; --amber: #E08A00; --red: #B81F1E; --blue: #1565c0; --ink: #15171a; --bg: #F2F3F5; --rule: rgba(21,23,26,0.14); }
+  :root { --green: #0E6B3A; --amber: #F0A202; --red: #B81F1E; --blue: #1565c0; --ink: #15171a; --bg: #F2F3F5; --rule: rgba(21,23,26,0.12); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Archivo', system-ui, -apple-system, sans-serif; font-variant-numeric: tabular-nums; background: var(--bg); color: var(--ink); min-height: 100vh; }
   .page { width: 100%; max-width: 520px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom)); }
@@ -20,80 +21,89 @@
   .back { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; color: inherit; text-decoration: none; border-radius: 50%; }
   .back:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   .header h1 { font-size: 20px; font-weight: 700; flex: 1; }
-  .header .updated { font-size: 14px; font-weight: 500; opacity: 0.7; white-space: nowrap; }
-  .header .updated.warn { opacity: 1; color: var(--red); font-weight: 600; }
+  .header .updated { font-size: 13px; font-weight: 500; opacity: 0.7; white-space: nowrap; text-align: right; }
+  .header .updated.warn { opacity: 1; color: var(--red); font-weight: 700; }
+  .hidden { display: none !important; }
 
+  /* at a glance */
   .glance { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-  .glance-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 500; }
-  .legend { display: inline-flex; align-items: center; gap: 12px; opacity: 0.8; }
+  .glance-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .legend { display: inline-flex; align-items: center; gap: 10px; opacity: 0.8; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .legend i.dot { border-radius: 50%; background: var(--amber); }
+  .strip-wrap { position: relative; }
   .strip { display: flex; height: 14px; border-radius: 3px; overflow: hidden; gap: 2px; }
   .strip div { min-width: 2px; }
-  .hidden { display: none !important; }
   .strip .open { background: var(--green); }
   .strip .closed { background: var(--red); }
-  .strip .closed.now { background: var(--red); }   /* one red: the black tick already marks now */
-  .period.closed.now .dot, .period.closed.now .line, .period.closed.now .seg { background: var(--red); }
-  .strip-lift { position: absolute; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); transform: translateX(-50%); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); pointer-events: none; }
-  .legend i.dot { border-radius: 50%; background: var(--amber); }
+  .strip-lift { position: absolute; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); transform: translateX(-50%); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); pointer-events: none; }
   .strip-axis { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.6; }
+  .strip-axis span:first-child { font-weight: 700; opacity: 1; }
 
-  .timeline { display: flex; flex-direction: column; margin-top: 28px; }
-  .period { display: flex; gap: 14px; }
-  .when { width: 54px; text-align: right; flex-shrink: 0; }
-  .when .t { font-size: 20px; font-weight: 700; line-height: 1; }
-  .when .d { font-size: 13px; opacity: 0.6; margin-top: 3px; }
-  .rail { width: 16px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-  .rail .dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
-  .rail .line { flex: 1; width: 4px; min-height: 24px; }
-  .rail .seg { width: 4px; flex-shrink: 0; }
-  .rail .lift { width: 4px; height: 40px; flex-shrink: 0; background: repeating-linear-gradient(to bottom, var(--amber) 0 5px, transparent 5px 9px); }
-  .period.open .dot, .period.open .line { background: var(--green); }
-  .period.closed .dot, .period.closed .line, .period.closed .seg { background: var(--red); }
-  .body { flex: 1; padding-bottom: 20px; display: flex; flex-direction: column; min-width: 0; }
-  .label { font-size: 20px; font-weight: 700; line-height: 1; }
-  .period.open .label { color: var(--green); }
-  .period.closed .label { color: var(--red); }
-  .train { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; font-size: 15px; border-bottom: 1px solid var(--rule); }
-  .train:first-of-type { margin-top: 4px; padding-top: 10px; }
-  .train:last-child { border-bottom: 0; }
-  .train .t { width: 44px; flex-shrink: 0; display: inline-flex; flex-direction: column; line-height: 1.1; font-weight: 700; }
-  .train .t .delta { font-size: 12px; font-weight: 700; margin-left: 4px; padding: 1px 5px; border-radius: 4px; color: #fff; background: var(--red); }
-  .train .t .delta.early { background: var(--blue); }
-  .train .t.late { color: var(--red); }
-  .train .t.early { color: var(--blue); }
-  .train .route { flex: 1; min-width: 0; }
-  .train .tag { font-size: 13px; opacity: 0.7; white-space: nowrap; }
-  .train .tag.late { color: var(--red); opacity: 1; font-weight: 600; }
-  .train .tag.early { color: var(--blue); opacity: 1; font-weight: 600; }
+  /* the list */
+  .cols { display: flex; gap: 14px; margin-top: 24px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; }
+  .cols span:first-child { width: 64px; text-align: center; flex-shrink: 0; }
+  .period { display: flex; gap: 14px; padding: 14px 0 16px; border-top: 1px solid var(--rule); }
+  .period:first-of-type { border-top-color: transparent; }
+  .period.now { background: rgba(14,107,58,0.08); border-radius: 10px; margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-top-color: transparent; border-left: 4px solid var(--green); padding-left: 6px; }
+  .period.now.closed { background: rgba(184,31,30,0.08); border-left-color: var(--red); }
+  .period.now + .period { border-top-color: transparent; }
+  .dur { width: 64px; flex-shrink: 0; text-align: center; padding-top: 2px; }
+  .dur .n { font-size: 30px; font-weight: 800; line-height: 1; font-stretch: 85%; }
+  .dur .u { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .period.open .dur, .period.open .head { color: var(--green); }
+  .period.closed .dur, .period.closed .head { color: var(--red); }
+  .body { flex: 1; min-width: 0; }
+  .head { font-size: 21px; font-weight: 700; line-height: 1.15; }
+  .rel { font-size: 15px; font-weight: 600; margin-top: 4px; opacity: 0.85; display: inline-flex; align-items: center; gap: 6px; }
+  .rel .ring { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--green); display: inline-block; }
+  .period.closed .rel .ring { border-color: var(--red); }
+  .shift { font-size: 14px; font-weight: 600; margin-top: 4px; opacity: 0.8; }
+  .trains { margin-top: 8px; }
+  .train { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; font-size: 16px; border-top: 1px solid var(--rule); }
+  .train .t { width: 52px; flex-shrink: 0; display: inline-flex; flex-direction: column; line-height: 1.1; font-weight: 700; }
+  .train .t .was { font-size: 12px; font-weight: 500; opacity: 0.5; text-decoration: line-through; }
+  .train .route { flex: 1; opacity: 0.9; line-height: 1.3; }
+  .train .tag { white-space: nowrap; opacity: 0.75; }
+  .train .tag.delta { opacity: 1; font-weight: 700; }
   .train.gone { opacity: 0.55; }
-  .lift-note { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 6px 0; border-radius: 6px; background: rgba(224,138,0,0.2); color: #5a3a00; font-size: 13px; font-weight: 600; }
-  .empty, .footer { font-size: 13px; opacity: 0.75; line-height: 1.4; margin-top: 24px; }
+  .lift-note { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 4px 0; border-radius: 6px; background: rgba(240,162,2,0.22); color: #5a3a00; font-size: 14px; font-weight: 600; }
+  .lift-note::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+  .toggle { display: flex; align-items: center; gap: 6px; min-height: 40px; margin-top: 4px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .toggle svg { transition: transform 0.15s; }
+  .toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .toggle:focus-visible, .more:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+
+  .more { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 8px; border: 0; background: none; color: var(--blue); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .empty, .footer { font-size: 13px; opacity: 0.75; line-height: 1.4; margin-top: 20px; }
   .empty { font-size: 16px; opacity: 0.8; }
-  .version { font-size: 11px; opacity: 0.45; margin-top: 14px; font-variant-numeric: tabular-nums; }
+  .version { font-size: 11px; opacity: 0.45; margin-top: 14px; }
 </style>
 </head>
 <body>
 <main class="page">
   <div class="header">
     <a class="back" href="/" aria-label="Back to crossing status"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
-    <h1>Next 90 minutes</h1>
+    <h1 id="title">Next 90 minutes</h1>
     <span class="updated" id="updated">Loading…</span>
   </div>
 
   <section class="glance" aria-label="At a glance">
     <div class="glance-head"><span style="opacity:0.7">At a glance</span><span class="legend"><span><i style="background: var(--green)"></i>open</span><span><i style="background: var(--red)"></i>closed</span><span id="legendLift" class="hidden"><i class="dot"></i>may lift</span></span></div>
-    <div style="position: relative">
-      <div class="strip" id="strip" role="img" aria-label="Open and closed periods over the next 90 minutes"></div>
+    <div class="strip-wrap">
+      <div class="strip" id="strip" role="img" aria-label="Open and closed periods"></div>
       <div id="stripLifts"></div>
     </div>
     <div class="strip-axis" id="stripAxis"></div>
   </section>
 
-  <section class="timeline" id="timeline"></section>
+  <div class="cols" id="cols"><span>How long</span><span>Crossing</span></div>
+  <section id="timeline"></section>
 
-  <div class="footer">Estimated from live train data: the barrier goes down about 2 minutes before each train and lifts just after it. Always follow the lights and barrier at the crossing.</div>
+  <button type="button" class="more" id="more">Show the following 90 minutes <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+
+  <div class="footer">Times follow live running: a train running early brings a closure forward, a late one pushes it back. Always follow the lights and barrier at the crossing.</div>
   <div class="version" id="version"></div>
 </main>
 
@@ -102,49 +112,92 @@
 (function () {
   const C = window.Crossing;
   const $ = id => document.getElementById(id);
+  let windowMin = 90;                 // 90, or 180 after "Show the following 90 minutes"
+  const expanded = new Set();         // closure keys the user has opened
+  const collapsed = new Set();        // closure keys the user has closed
+  let lastSig = '';
+
+  $('more').addEventListener('click', () => {
+    windowMin = windowMin === 90 ? 180 : 90;
+    $('more').innerHTML = (windowMin === 90 ? 'Show the following 90 minutes' : 'Show less') + ' <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (windowMin === 90 ? 'M6 9l6 6 6-6' : 'M18 15l-6-6-6 6') + '"/></svg>';
+    $('title').textContent = windowMin === 90 ? 'Next 90 minutes' : 'Next 3 hours';
+    lastSig = ''; render();
+  });
+
+  const key = c => String(c.closeAt.getTime());
+  const relText = (start, now) => {
+    const s = Math.round((start - now) / 1000);
+    if (s < 45) return 'Starts in under a minute';
+    return `Starts in ${Math.round(s / 60)} min`;
+  };
+  // how far a closure's start has moved from the timetable: the first train decides it
+  function startShiftMin(c) {
+    const first = c.trains.slice().sort((a, b) => a.closeAt - b.closeAt)[0];
+    if (!first) return 0;
+    return first.late ? first.late : first.early ? -first.early : 0;
+  }
+  function shiftLine(p, periods, i) {
+    if (p.kind === 'closed') {
+      const d = startShiftMin(p.closure);
+      if (d > 0) return `${d} min later than usual`;
+      if (d < 0) return `May start ${-d} min earlier than usual`;
+    } else {
+      const next = periods[i + 1];
+      if (next && next.closure) {
+        const d = startShiftMin(next.closure);
+        if (d > 0) return `Ends ${d} min later than usual`;
+        if (d < 0) return `May end ${-d} min earlier than usual`;
+      }
+    }
+    return '';
+  }
 
   function trainRow(tr, now) {
     const gone = tr.openAt <= now;
-    const cls = tr.late ? 'late' : tr.early ? 'early' : '';
-    let time = C.hhmm(tr.at);
-    if (tr.late) time += `<span class="delta">${tr.late} min late</span>`;
-    else if (tr.early) time += `<span class="delta early">${tr.early} min early</span>`;
+    let t = C.hhmm(tr.at);
+    let was = '';
+    if ((tr.late || tr.early) && tr.schedAt) was = `<span class="was">${C.hhmm(tr.schedAt)}</span>`;
     let tag = tr.stops ? 'stops here' : 'passes through';
     if (tr.freight) tag = 'freight';
+    let cls = 'tag';
     if (gone) tag = 'gone';
-    else if (tr.late) tag = `${tr.late} min late`;
-    else if (tr.early) tag = `${tr.early} min early`;
-    return `<div class="train${gone ? ' gone' : ''}"><span class="t">${time}</span><span class="route">${tr.origin} to ${tr.destination}</span><span class="tag ${cls}">${tag}</span></div>`;
+    else if (tr.late) { tag = `${tr.late} min late`; cls += ' delta'; }
+    else if (tr.early) { tag = `${tr.early} min early`; cls += ' delta'; }
+    return `<div class="train${gone ? ' gone' : ''}"><span class="t">${t}${was}</span><span class="route">${tr.origin} to ${tr.destination} <span class="${cls}">· ${tag}</span></span></div>`;
   }
+  const liftNote = l => `<div class="lift-note">May lift ~${C.hhmm(l.at)} for under 30 s</div>`;
 
-  function liftNote(l) {
-    return `<div class="lift-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg><span>May lift ~${C.hhmm(l.at)} for under 30 s</span></div>`;
-  }
-
-  function periodHtml(p, now, isFirst) {
-    const when = isFirst && p.start <= now ? 'now' : C.hhmm(p.start);
-    const dur = `${Math.max(1, Math.round(p.seconds / 60))} min ${p.kind}`;
-    let body = `<div class="label">${p.kind === 'open' ? 'Open' : 'Closed'}</div>`;
-    let rail = `<div class="dot"></div>`;
+  function periodHtml(p, periods, i, now, closureIndex) {
+    const isNow = i === 0 && p.start <= now;
+    const dur = Math.max(1, Math.round(p.seconds / 60));
+    const head = p.kind === 'open'
+      ? (isNow ? `Open until ${C.hhmm(p.end)}` : `Open ${C.hhmm(p.start)} to ${C.hhmm(p.end)}`)
+      : (isNow ? `Closed until ${C.hhmm(p.end)}` : `Closed ${C.hhmm(p.start)} to ${C.hhmm(p.end)}`);
+    const rel = isNow ? '<span class="ring"></span>Now' : relText(p.start, now);
+    const shift = shiftLine(p, periods, i);
+    let body = `<div class="head">${head}</div><div class="rel" data-start="${p.start.getTime()}" data-now="${isNow ? 1 : 0}">${rel}</div>`;
+    if (shift) body += `<div class="shift">${shift}</div>`;
     if (p.kind === 'closed') {
-      const c = p.closure;
-      c.trains.forEach((tr, i) => {
-        body += trainRow(tr, now);
-        const lift = c.lifts.find(l => l.beforeTrain === c.trains[i + 1]);
-        if (lift) body += liftNote(lift);
+      const c = p.closure, k = key(c);
+      // current and next closure open by default; later ones collapsed
+      const open = expanded.has(k) || (closureIndex < 2 && !collapsed.has(k));
+      const n = c.trains.length;
+      let trains = '';
+      c.trains.forEach((tr, j) => {
+        trains += trainRow(tr, now);
+        const lift = c.lifts.find(l => l.beforeTrain === c.trains[j + 1]);
+        if (lift) trains += liftNote(lift);
       });
-      if (c.lifts.length) {
-        // red, then a dashed amber break per possible lift, then red
-        rail += `<div class="seg" style="height:64px"></div>`;
-        c.lifts.forEach(() => { rail += `<div class="lift"></div><div class="seg" style="height:24px"></div>`; });
-        rail += `<div class="line"></div>`;
+      if (open) {
+        body += `<div class="trains">${trains}</div>`;
+        if (closureIndex >= 2) body += `<button type="button" class="toggle" data-key="${k}" aria-expanded="true">Hide trains <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
       } else {
-        rail += `<div class="line"></div>`;
+        // collapsed: keep any lift note visible, it's period-level information
+        body += c.lifts.map(liftNote).join('');
+        body += `<button type="button" class="toggle" data-key="${k}" aria-expanded="false">${n} train${n === 1 ? '' : 's'} <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
       }
-    } else {
-      rail += `<div class="line"></div>`;
     }
-    return `<div class="period ${p.kind}${isFirst && p.kind === 'closed' ? ' now' : ''}"><div class="when"><div class="t">${when}</div><div class="d">${dur}</div></div><div class="rail">${rail}</div><div class="body">${body}</div></div>`;
+    return `<div class="period ${p.kind}${isNow ? ' now' : ''}"><div class="dur"><div class="n">${dur}</div><div class="u">min</div></div><div class="body">${body}</div></div>`;
   }
 
   function render() {
@@ -154,36 +207,65 @@
     const upd = $('updated');
     if (C.loader.lastServerPoll) {
       const stale = age >= C.CFG.staleWarnSec && !paused;
-      upd.textContent = paused ? `Timetable from ${C.hhmm(C.loader.lastServerPoll)}` : (stale ? 'Last data ' : 'Train data ') + C.hhmm(C.loader.lastServerPoll);
+      const ago = age < 60 ? 'just now' : `${Math.round(age / 60)} min ago`;
+      upd.textContent = paused ? `Timetable from ${C.hhmm(C.loader.lastServerPoll)}` : (stale ? 'Updating… last data ' : 'Updated ') + ago;
       upd.classList.toggle('warn', stale || !!paused);
     }
-    const closures = C.buildClosures(C.loader.trains);
-    const periods = C.buildPeriods(closures, now);
     if (C.loader.version) {
       const d = C.loader.startedAt;
       $('version').textContent = `Version ${C.loader.version}` + (d ? ` · live since ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${C.hhmm(d)}` : '');
     }
+    const closures = C.buildClosures(C.loader.trains);
+    const periods = C.buildPeriods(closures, now, windowMin);
+    const windowMs = windowMin * 60000;
 
-    $('strip').innerHTML = periods.map((p, i) => `<div class="${p.kind}${i === 0 && p.kind === 'closed' ? ' now' : ''}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
-    const windowMs = C.CFG.windowMin * 60000;
+    // at a glance
+    $('strip').innerHTML = periods.map(p => `<div class="${p.kind}" style="flex:${p.seconds}" title="${p.kind} ${C.hhmm(p.start)} to ${C.hhmm(p.end)}"></div>`).join('');
     const lifts = [];
     for (const c of closures) for (const l of c.lifts) if (l.at > now && l.at - now < windowMs) lifts.push(l);
     $('stripLifts').innerHTML = lifts.map(l => `<span class="strip-lift" style="left:${(100 * (l.at - now) / windowMs).toFixed(1)}%"></span>`).join('');
     $('legendLift').classList.toggle('hidden', lifts.length === 0);
     const axis = ['now'];
-    for (let m = 30; m <= 90; m += 30) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
+    const step = windowMin / 3;
+    for (let m = step; m <= windowMin; m += step) axis.push(C.hhmm(new Date(now.getTime() + m * 60000)));
     $('stripAxis').innerHTML = axis.map(a => `<span>${a}</span>`).join('');
 
     if (age != null && age >= C.CFG.staleFailSec && (!paused || age >= C.CFG.windowMin * 60)) {
       $('timeline').innerHTML = `<div class="empty">Train data hasn't updated for ${C.minutesWord(age)}, so the timeline can't be predicted. Use the lights and barrier at the crossing.</div>`;
+      $('cols').classList.add('hidden'); $('more').classList.add('hidden'); lastSig = '';
       return;
     }
     if (!closures.length) {
-      $('timeline').innerHTML = `<div class="empty">No closures expected in the next 90 minutes.</div>`;
+      $('timeline').innerHTML = `<div class="empty">No closures expected in the next ${windowMin === 90 ? '90 minutes' : '3 hours'}.</div>`;
+      $('cols').classList.add('hidden'); $('more').classList.toggle('hidden', windowMin === 180 ? false : false); lastSig = '';
       return;
     }
-    $('timeline').innerHTML = periods.map((p, i) => periodHtml(p, now, i === 0)).join('');
+    $('cols').classList.remove('hidden'); $('more').classList.remove('hidden');
+
+    // Rebuild the list only when its structure changes; otherwise update the
+    // relative times in place so nothing moves under the reader.
+    const sig = periods.map(p => `${p.kind}|${p.start.getTime()}|${p.end.getTime()}|${p.closure ? p.closure.trains.map(t => t.rid + (t.openAt <= now ? 'g' : '') + t.late + t.early).join(',') : ''}`).join(';')
+      + '|' + [...expanded].join(',') + '|' + [...collapsed].join(',');
+    if (sig !== lastSig) {
+      let ci = 0;
+      $('timeline').innerHTML = periods.map((p, i) => periodHtml(p, periods, i, now, p.kind === 'closed' ? ci++ : ci)).join('');
+      lastSig = sig;
+    } else {
+      document.querySelectorAll('#timeline .rel').forEach(el => {
+        if (el.dataset.now === '1') return;
+        el.textContent = relText(new Date(Number(el.dataset.start)), now);
+      });
+    }
   }
+
+  $('timeline').addEventListener('click', e => {
+    const b = e.target.closest('.toggle');
+    if (!b) return;
+    const k = b.dataset.key;
+    if (b.getAttribute('aria-expanded') === 'true') { expanded.delete(k); collapsed.add(k); }
+    else { collapsed.delete(k); expanded.add(k); }
+    lastSig = ''; render();
+  });
 
   async function refresh() {
     try { await C.loader.fetch(); } catch (e) { console.warn('fetch failed', e); }
