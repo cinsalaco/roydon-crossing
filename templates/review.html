@@ -67,7 +67,7 @@
       const arr = a.arrival_at ? new Date(a.arrival_at) : t;
       let downFrom = t, road = t.getTime();
       if (cfg.roadPass != null) {
-        if (!stops) road = t.getTime() + cfg.roadPass * 1000;
+        if (!stops) road = t.getTime() + (toLon && cfg.roadPassLon != null ? -cfg.roadPassLon : cfg.roadPass) * 1000;
         else if (toLon) { road = arr.getTime() - cfg.roadArr * 1000; downFrom = arr; }
         else { road = t.getTime() + cfg.roadDep * 1000; downFrom = arr; }
       }
@@ -128,7 +128,7 @@
     const measured = (title, vals, sub) => { const st = stats(vals); return st ? `<div class="card"><div class="k">${title}</div><div class="v">${st.median}s</div><div class="s">median of ${st.n}, mean ${st.mean}s, range ${st.min} to ${st.max}${sub ? '<br>' + sub : ''}</div></div>` : `<div class="card"><div class="k">${title}</div><div class="v">–</div><div class="s">${sub || 'no reconciled data yet'}</div></div>`; };
     document.getElementById('measured').innerHTML =
       measured('Lights before RTT time', leads, `model: 120 s before arrival (stopping) or pass time · ${reconciled} of ${obs.length} observations have RTT actuals`) +
-      measured('Barrier up after RTT time', trails, 'model: 15 s after the train is on the road (pass +20 s, departure +40 s, arrival −15 s)') +
+      measured('Barrier up after RTT time', trails, 'model: 15 s after the train is on the road (pass +25 s to Harlow / −10 s to London, departure +40 s, arrival −15 s)') +
       measured('Lead – stopping trains', leadStop) +
       measured('Lead – passing trains', leadPass) +
       measured('Lead – towards London', leadTo) +

@@ -16,7 +16,8 @@ window.Crossing = (function () {
   const CFG = {
     // The crossing is on the Harlow side of the platforms. RTT times the train at the
     // station, so the model first works out when the train is actually at the road:
-    //   passing train            -> RTT pass time + roadAfterPassSec
+    //   passing, towards Harlow  -> RTT pass time + roadAfterPassSec (station, then road)
+    //   passing, towards London  -> RTT pass time - roadBeforePassSec (road, then station)
     //   stopping, towards Harlow -> RTT departure + roadAfterDepSec (stops, then crosses)
     //   stopping, towards London -> RTT arrival - roadBeforeArrSec (crosses, then stops)
     // Barriers always go down before a stopping train *arrives*, so the lead is measured
@@ -24,7 +25,8 @@ window.Crossing = (function () {
     leadSec: 120,        // barrier down this long before the RTT arrival/pass time (logged 92-128s)
     minLeadSec: 45,      // after a brief lift the barrier can come down again as late as this before the next train (logged 9 Nov: ~45-60s)
     trailSec: 15,        // ...and fully up this long after the train clears the road (logged 11-30s, Carmelo: 12-15s)
-    roadAfterPassSec: 20,
+    roadAfterPassSec: 25,   // taps 22-34s after RTT time for Harlow-bound passers
+    roadBeforePassSec: 10,  // taps 12-17s before RTT time for London-bound passers; barrier up at RTT+4s
     roadAfterDepSec: 40,  // barrier-up logged at departure +55/+57s for stopping trains towards Harlow (6 and 9 Nov)
     roadBeforeArrSec: 15,
     mergeGapSec: 90,     // if it would be up for less than this, it stays down (one closure)
@@ -65,7 +67,7 @@ window.Crossing = (function () {
     const arrAt = (stops && parseIso(t.arrival_iso)) || at;
     // When the train is actually on the road, and when the barriers start to come down.
     let roadAt, downFrom;
-    if (!stops) { roadAt = at.getTime() + CFG.roadAfterPassSec * 1000; downFrom = at; }
+    if (!stops) { roadAt = at.getTime() + (toLondon ? -CFG.roadBeforePassSec : CFG.roadAfterPassSec) * 1000; downFrom = at; }
     else if (toLondon) { roadAt = arrAt.getTime() - CFG.roadBeforeArrSec * 1000; downFrom = arrAt; }
     else { roadAt = at.getTime() + CFG.roadAfterDepSec * 1000; downFrom = arrAt; }
     return {
@@ -250,7 +252,7 @@ window.Crossing = (function () {
       nearest_train_to_london: nearest ? nearest.toLondon : null,
       data_age_sec: loader.dataAgeSec(now),
       cfg: { lead: CFG.leadSec, trail: CFG.trailSec, merge: CFG.mergeGapSec, minLead: CFG.minLeadSec,
-             roadPass: CFG.roadAfterPassSec, roadDep: CFG.roadAfterDepSec, roadArr: CFG.roadBeforeArrSec },
+             roadPass: CFG.roadAfterPassSec, roadPassLon: CFG.roadBeforePassSec, roadDep: CFG.roadAfterDepSec, roadArr: CFG.roadBeforeArrSec },
     };
   }
 

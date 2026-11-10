@@ -82,7 +82,8 @@ Open http://localhost:5002. Run the parser test with `python tests_parser.py`.
 
 The assumptions live at the top of `static/crossing.js` (`CFG`). The crossing
 is on the Harlow side of the platforms, so the model first estimates when each
-train is actually on the road (pass time + 20 s; stopping towards Harlow:
+train is actually on the road (passing towards Harlow: pass time + 25 s;
+passing towards London: pass time - 10 s; stopping towards Harlow:
 departure + 40 s; stopping towards London: arrival - 15 s). Barriers go down
 120 s before a stopping train arrives or a passing train passes, and lift 15 s
 after the train clears the road; closures merge when the gap would be under
